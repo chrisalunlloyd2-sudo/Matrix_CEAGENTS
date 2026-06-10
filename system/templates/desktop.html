@@ -1,0 +1,2321 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>PocketMatrix CE (Windows 95 Mode)</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <style>
+        :root {
+            --ce-gray: #c0c0c0;
+            --ce-blue: #000080;
+            --ce-teal: #008080;
+        }
+
+        html, body {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            position: absolute;
+            inset: 0;
+            overflow: hidden;
+            background: var(--ce-teal);
+            font-family: 'Tahoma', sans-serif;
+            display: flex;
+            flex-direction: column;
+            /* Chunky Base Font matching legacy density */
+            font-size: 16px; 
+        }
+
+        #desktop {
+            flex-grow: 1; /* Pushes taskbar to bottom natively */
+            min-height: 0; /* Prevents flex blowout */
+            overflow-y: auto; /* Allows desktop icons to scroll if needed */
+            position: relative; /* Windows remain absolute to desktop bounds */
+            padding: 1rem; 
+            display: flex; 
+            flex-wrap: wrap; 
+            align-content: flex-start;
+            gap: 1.5rem;
+        }
+
+        /* Taskbar */
+        #taskbar { 
+            width: 100%; 
+            height: 3.5rem; 
+            flex-shrink: 0;
+            background: var(--ce-gray); 
+            border-top: 0.15rem solid #fff; 
+            display: flex; 
+            align-items: center; 
+            z-index: 2000; 
+            box-shadow: inset 1px 1px #dfdfdf;
+        }
+
+        #start-btn { 
+            height: 2.2rem; 
+            width: 5.5rem; 
+            background: var(--ce-gray); 
+            border: 0.15rem outset #fff; 
+            font-weight: bold; 
+            font-size: 1.1rem; 
+            margin-left: 0.2rem; 
+            cursor: pointer; 
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.2rem;
+        }
+        #start-btn:active { border: 0.15rem inset #fff; }
+
+        #taskbar-windows { display: flex; flex-grow: 1; padding: 0 0.5rem; gap: 0.2rem; overflow: hidden; }
+        .taskbar-btn { 
+            background: var(--ce-gray); border: 0.15rem outset #fff; font-size: 1rem; font-weight: bold;
+            padding: 0.1rem 0.5rem; cursor: pointer; display: flex; align-items: center; max-width: 8rem; overflow: hidden; white-space: nowrap; height: 1.8rem;
+        }
+        .taskbar-btn.active { border: 0.15rem inset #fff; background: #e0e0e0; }
+
+        .win-logo { width: 1.2rem; height: 1.2rem; background: linear-gradient(45deg, #f00, #ff0, #0f0, #00f); }
+
+        /* Windows */
+        .window { 
+            position: absolute; 
+            background: var(--ce-gray); 
+            border: 0.15rem outset #fff; 
+            padding: 0.2rem; 
+            box-shadow: 0.2rem 0.2rem 0.5rem rgba(0,0,0,0.5); 
+            display: none;
+            width: 95vw;
+            max-height: 85vh;
+            z-index: 100;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .window-header { 
+            background: var(--ce-blue); 
+            color: #fff; 
+            padding: 0.2rem 0.5rem; 
+            font-weight: bold; 
+            font-size: 1.1rem;
+            display: flex; 
+            justify-content: space-between; 
+            cursor: move; 
+            align-items: center;
+        }
+
+        .window-header .ctrl-btn { 
+            cursor: pointer; 
+            background: var(--ce-gray); 
+            color: #000; 
+            border: 0.15rem outset #fff; 
+            padding: 0 0.4rem; 
+            font-size: 1rem; 
+            font-weight: bold;
+            margin-left: 0.2rem;
+        }
+
+        .window-content { 
+            background: #fff; 
+            border: 0.15rem inset #fff; 
+            overflow: auto; 
+            font-size: 1.1rem;
+            flex-grow: 1;
+        }
+
+        /* Toolbar */
+        .app-toolbar { background: var(--ce-gray); padding: 0.3rem; display: flex; gap: 0.4rem; border-bottom: 0.15rem inset #fff; }
+        .app-toolbar button { font-family: 'Tahoma'; font-size: 1rem; cursor: pointer; }
+
+        /* Explorer Layout */
+        .explorer-container { display: flex; height: 100%; min-height: 20rem; }
+        .side-pane { width: 10rem; border-right: 0.15rem solid var(--ce-gray); background: #f0f0f0; padding: 0.5rem; overflow-y: auto; font-size: 1rem; }
+        .main-pane { flex-grow: 1; padding: 0.5rem; background: #fff; overflow-y: auto; font-size: 1rem; }
+        .db-item { cursor: pointer; padding: 0.4rem; border-bottom: 0.1rem solid #eee; display: flex; align-items: center; gap: 0.4rem; }
+        .db-item:hover { background: #e0e0ff; }
+
+        /* Desktop Icons */
+        .icon { width: 5rem; text-align: center; cursor: pointer; color: white; font-size: 1rem; text-shadow: 0.1rem 0.1rem 0.1rem #000; }
+        .icon-img { width: 2.8rem; height: 2.8rem; margin: 0 auto 0.4rem auto; background-size: contain; background-repeat: no-repeat; background-position: center; }
+        
+        /* Start Menu */
+        #start-menu { 
+            position: absolute; bottom: 3rem; left: 0; width: 18rem; background: var(--ce-gray); border: 0.15rem outset #fff; 
+            display: none; z-index: 2000; flex-direction: row;
+        }
+        
+        .start-sidebar { 
+            width: 2rem; background: linear-gradient(to bottom, #808080, #000); 
+            writing-mode: vertical-rl; transform: rotate(180deg); color: #c0c0c0; 
+            font-weight: bold; font-size: 1.4rem; padding: 0.5rem 0.2rem;
+        }
+
+        .start-items { flex-grow: 1; display: flex; flex-direction: column; }
+        .start-item { 
+            padding: 0.5rem 0.8rem; display: flex; align-items: center; cursor: pointer; font-size: 1.1rem;
+            position: relative;
+            color: #000;
+        }
+        .start-item:hover { background: var(--ce-blue); color: #fff; }
+        .start-item:hover > .submenu { display: block; }
+        
+        .arrow { margin-left: auto; border: solid #000; border-width: 0 0.15rem 0.15rem 0; display: inline-block; padding: 0.2rem; transform: rotate(-45deg); }
+        .start-item:hover .arrow { border-color: #fff; }
+
+        /* Submenus */
+        .submenu { 
+            position: absolute; left: 15.8rem; top: -0.15rem; width: 14rem; background: var(--ce-gray); 
+            border: 0.15rem outset #fff; display: none; color: #000; z-index: 2100;
+        }
+
+        /* Agent Command Prompt */
+        #cmd-out { height: 100%; min-height: 20rem; background: #000; color: #0f0; font-family: 'Courier New', monospace; padding: 0.5rem; overflow-y: auto; font-size: 1.1rem; line-height: 1.2; flex-grow: 1;}
+        #cmd-in { width: 100%; border: none; background: #000; color: #0f0; font-family: 'Courier New', monospace; outline: none; font-size: 1.1rem; padding: 0.3rem; box-sizing: border-box; }
+
+        /* Table Style */
+        table.excel95 { border-collapse: collapse; width: 100%; font-size: 1rem; }
+        table.excel95 th { background: var(--ce-gray); border: 0.15rem outset #fff; padding: 0.2rem 0.4rem; position: sticky; top: 0; }
+        table.excel95 td { border: 0.15rem solid #ccc; padding: 0.2rem 0.4rem; }
+
+        /* Calculator */
+        .calc-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.2rem; padding: 0.5rem; background: var(--ce-gray); }
+        .calc-grid button { padding: 0.5rem; font-weight: bold; font-size: 1.2rem; border: 0.15rem outset #fff; cursor: pointer; }
+        .calc-grid button:active { border: 0.15rem inset #fff; }
+        #calc-display { grid-column: span 4; background: #fff; border: 0.15rem inset #fff; padding: 0.4rem; text-align: right; font-size: 1.4rem; margin-bottom: 0.4rem; }
+
+        /* Settings */
+        fieldset { border: 0.15rem groove #fff; padding: 0.5rem; margin-bottom: 0.5rem; font-size: 1rem; }
+        legend { padding: 0 0.4rem; }
+
+        /* Mobile Accessibility Overrides */
+        @media (max-width: 800px) {
+            html, body { font-size: 9px !important; }
+            .window {
+                width: 95vw !important;
+                height: 80vh !important;
+                left: 2.5vw !important;
+                top: 2.5vh !important;
+            }
+            .window-title { font-size: 1.2rem !important; padding: 0.8rem !important; }
+            .window-controls button { width: 2rem !important; height: 2rem !important; }
+            #taskbar { height: 5rem !important; }
+            #start-btn { height: 4rem !important; font-size: 1.5rem !important; padding: 0 1rem !important; }
+            .icon { width: 6rem !important; font-size: 1rem !important; }
+            .icon-img { width: 4rem !important; height: 4rem !important; }
+            #start-menu { width: 90vw !important; bottom: 5rem !important; }
+            .menu-item { padding: 1.5rem !important; font-size: 1.5rem !important; }
+        }
+    </style>
+</head>
+<body>
+    <div id="desktop">
+        <div class="icon" onclick="openWindow('win-docs')">
+            <div class="icon-img" style="background-color: #fce94f; border: 1px solid #c4a000;"></div>
+            <span>My Documents</span>
+        </div>
+        <div class="icon" onclick="openWindow('win-db')">
+            <div class="icon-img" style="background-color: #729fcf; border: 1px solid #204a87;"></div>
+            <span>Databases</span>
+        </div>
+        <div class="icon" onclick="openWindow('win-cmd')">
+            <div class="icon-img" style="background: #000; border: 1px solid #fff;"></div>
+            <span>Command Prompt</span>
+        </div>
+        <div class="icon" onclick="openWindow('win-taskmgr')">
+            <div class="icon-img" style="background-color: #555; border: 1px solid #aaa; display:flex; justify-content:center; align-items:center; font-size:20px;">📈</div>
+            <span>System Monitor</span>
+        </div>
+        <div class="icon" onclick="openWindow('win-scheduler')">
+            <div class="icon-img" style="background-color: #ccc; border: 1px solid #000; display:flex; justify-content:center; align-items:center; font-size:20px;">⏰</div>
+            <span>Task Scheduler</span>
+        </div>
+        <div class="icon" onclick="openWindow('win-help')">
+            <div class="icon-img" style="background-color: #fff; border: 1px solid #000; border-radius: 50%; display:flex; justify-content:center; align-items:center; font-size:20px; color:#00f; font-weight:bold;">?</div>
+            <span>Help & Support</span>
+        </div>
+        <div class="icon" onclick="openWindow('win-recycle')">
+            <div class="icon-img" style="background-color: #ccc; border: 2px dashed #666; display:flex; justify-content:center; align-items:center; font-size:20px;">🗑️</div>
+            <span>Recycle Bin</span>
+        </div>
+        <div class="icon" onclick="openWindow('win-terminal')">
+            <div class="icon-img" style="background: #333; border: 2px outset #fff; display:flex; justify-content:center; align-items:center; font-size:20px;">C:\</div>
+            <span>Terminal (MS-DOS)</span>
+        </div>
+        <div class="icon" onclick="openWindow('win-swarm')">
+            <div class="icon-img" style="background: #e0e0ff; border: 1px solid #000; display:flex; justify-content:center; align-items:center; font-size:20px;">🤖</div>
+            <span>Swarm Chat</span>
+        </div>
+        <div class="icon" onclick="openWindow('win-git')">
+            <div class="icon-img" style="background: #fff; border: 2px solid #f05032; display:flex; justify-content:center; align-items:center; font-size:20px;">🌿</div>
+            <span>Git Client</span>
+        </div>
+        <div class="icon" onclick="openWindow('win-logs')">
+            <div class="icon-img" style="background: #000; border: 1px solid #0f0; display:flex; justify-content:center; align-items:center; font-size:20px;">📜</div>
+            <span>Log Viewer</span>
+        </div>
+        <div class="icon" onclick="openWindow('win-keys')">
+            <div class="icon-img" style="background: #e8d06a; border: 1px solid #b59b36; display:flex; justify-content:center; align-items:center; font-size:20px;">🔑</div>
+            <span>Key Vault</span>
+        </div>
+        <div class="icon" onclick="openWindow('win-vipernotes'); loadViperNotes();">
+            <div class="icon-img" style="background: #008080; border: 1px solid #000; display:flex; justify-content:center; align-items:center; font-size:20px;">🐍</div>
+            <span>Viper Notes</span>
+        </div>
+        <div class="icon" onclick="openWindow('win-diag')">
+            <div class="icon-img" style="background: #4a90e2; border: 1px solid #0050a0; display:flex; justify-content:center; align-items:center; font-size:20px;">🩺</div>
+            <span>Diagnostics</span>
+        </div>
+        <div class="icon" onclick="openWindow('win-axiomatic')">
+            <div class="icon-img" style="background: #333; border: 1px solid #0f0; display:flex; justify-content:center; align-items:center; font-size:20px;">🕸️</div>
+            <span>Axiomatic Grid</span>
+        </div>
+        <div class="icon" onclick="openWindow('win-matrix-config')">
+            <div class="icon-img" style="background: #f0f; border: 1px solid #fff; display:flex; justify-content:center; align-items:center; font-size:20px;">⚙️</div>
+            <span>Matrix Config</span>
+        </div>
+        <div class="icon" onclick="openWindow('win-models')">
+            <div class="icon-img" style="background: #fb8c00; border: 1px solid #fff; display:flex; justify-content:center; align-items:center; font-size:20px;">🧊</div>
+            <span>Model Manager</span>
+        </div>
+        <div class="icon" onclick="openWindow('win-swarm-registry')">
+            <div class="icon-img" style="background: #ffeb3b; border: 1px solid #000; display:flex; justify-content:center; align-items:center; font-size:20px;">🐝</div>
+            <span>Swarm Registry</span>
+        </div>
+        <div class="icon" onclick="openWindow('win-ops-manual')">
+            <div class="icon-img" style="background: #4caf50; border: 1px solid #fff; display:flex; justify-content:center; align-items:center; font-size:20px;">📖</div>
+            <span>Ops Manual</span>
+        </div>
+        <div class="icon" onclick="openWindow('win-swarm-status')">
+            <div class="icon-img" style="background: #e1f5fe; border: 1px solid #01579b; display:flex; justify-content:center; align-items:center; font-size:20px;">💬</div>
+            <span>Swarm Status</span>
+        </div>
+        <div class="icon" onclick="openWindow('win-research-lab')">
+            <div class="icon-img" style="background: #7e57c2; border: 1px solid #fff; display:flex; justify-content:center; align-items:center; font-size:20px;">🧪</div>
+            <span>Research Lab</span>
+        </div>
+        <div class="icon" onclick="openWindow('win-system-restore')">
+            <div class="icon-img" style="background: #ef5350; border: 1px solid #fff; display:flex; justify-content:center; align-items:center; font-size:20px;">🛡️</div>
+            <span>System Restore</span>
+        </div>
+        <div class="icon" onclick="openWindow('win-mind-palace')">
+            <div class="icon-img" style="background: #1a237e; border: 1px solid #fff; display:flex; justify-content:center; align-items:center; font-size:20px;">🧠</div>
+            <span>Mind Palace</span>
+        </div>
+        <div class="icon" onclick="openWindow('win-office-grid')">
+            <div class="icon-img" style="background: #2e7d32; border: 1px solid #fff; display:flex; justify-content:center; align-items:center; font-size:20px;">📊</div>
+            <span>Matrix Grid</span>
+        </div>
+        <div class="icon" onclick="openWindow('win-office-script')">
+            <div class="icon-img" style="background: #1565c0; border: 1px solid #fff; display:flex; justify-content:center; align-items:center; font-size:20px;">📝</div>
+            <span>Matrix Script</span>
+        </div>
+        <div class="icon" onclick="openWindow('win-reverse-hub')">
+            <div class="icon-img" style="background: #37474f; border: 1px solid #fff; display:flex; justify-content:center; align-items:center; font-size:20px;">🔍</div>
+            <span>Reverse Hub</span>
+        </div>
+        <div class="icon" onclick="openWindow('win-genetic-audio')">
+            <div class="icon-img" style="background: #ff4081; border: 1px solid #fff; display:flex; justify-content:center; align-items:center; font-size:20px;">🎵</div>
+            <span>Genetic Audio</span>
+        </div>
+        <div class="icon" onclick="openWindow('win-qwen-max')">
+            <div class="icon-img" style="background: #6200ea; border: 1px solid #fff; display:flex; justify-content:center; align-items:center; font-size:20px;">⚡</div>
+            <span>Qwen Max</span>
+        </div>
+    </div>
+    
+    <!-- Genetic Audio (FruityLoops Mode) -->
+    <div class="window" id="win-genetic-audio" style="top: 100px; left: 400px; width: 500px; height: 400px; display: none;">
+        <div class="window-header">
+            <span class="win-title">Genetic Audio Studio - [V1.0]</span>
+            <div>
+                <span class="ctrl-btn" onclick="minimizeWindow('win-genetic-audio')">_</span>
+                <span class="ctrl-btn" onclick="closeWindow('win-genetic-audio')">X</span>
+            </div>
+        </div>
+        <div class="app-toolbar">
+            <button onclick="evolveAudio()">Evolve New Seed</button>
+            <button onclick="playEvolved()">Play Latest</button>
+        </div>
+        <div class="window-content" style="background: #121212; color: #ff4081; padding: 15px;">
+            <div style="height: 100px; border-bottom: 1px solid #333; margin-bottom: 10px;">
+                <!-- Audio Waveform Visualization Placeholder -->
+                <div style="text-align:center; padding-top:40px; font-style:italic;">[ Spectral Evolution Waveform ]</div>
+            </div>
+            <div id="audio-log" style="font-family: monospace; font-size: 11px;">
+                [*] Studio initialized. Swarm Happiness Fitness active.
+            </div>
+        </div>
+    </div>
+
+    <!-- Qwen Max (Hyper-Throughput) -->
+    <div class="window" id="win-qwen-max" style="top: 200px; left: 200px; width: 550px; height: 450px; display: none;">
+        <div class="window-header">
+            <span class="win-title">Qwen Max Optimizer - [Directed Tasks]</span>
+            <div>
+                <span class="ctrl-btn" onclick="minimizeWindow('win-qwen-max')">_</span>
+                <span class="ctrl-btn" onclick="closeWindow('win-qwen-max')">X</span>
+            </div>
+        </div>
+        <div class="app-toolbar">
+            <button onclick="runDirectedBatch()">Run Directed Batch</button>
+            <span style="margin-left:auto; font-size:11px;">Parallel Slots: 2</span>
+        </div>
+        <div class="window-content" style="padding: 10px;">
+            <div style="font-weight:bold; margin-bottom:5px;">Parallel Task Queue:</div>
+            <div id="qwen-task-queue" style="background:#eee; height:150px; overflow:auto; padding:10px; margin-bottom:10px;">
+                [+] Directed Task 1: Refine manifest.xml<br>
+                [+] Directed Task 2: Optimize heart_beat.java
+            </div>
+            <div style="font-weight:bold; margin-bottom:5px;">Genetic Pedagogy Status:</div>
+            <div id="pedagogy-log" style="font-family:monospace; font-size:12px; color:#6200ea;">
+                [*] Mutation Loop: Searching for optimal prompt seed...
+            </div>
+        </div>
+    </div>
+    
+    <!-- Reverse Hub -->
+    <div class="window" id="win-reverse-hub" style="top: 150px; left: 300px; width: 650px; height: 500px; display: none;">
+        <div class="window-header">
+            <span class="win-title">Reverse Hub - [Vision-to-Logic]</span>
+            <div>
+                <span class="ctrl-btn" onclick="minimizeWindow('win-reverse-hub')">_</span>
+                <span class="ctrl-btn" onclick="closeWindow('win-reverse-hub')">X</span>
+            </div>
+        </div>
+        <div class="app-toolbar">
+            <button onclick="captureVision()">Analyze Photo</button>
+            <button onclick="triggerDecompile()">Decompile Binary</button>
+        </div>
+        <div class="window-content" style="padding: 10px; display: flex; flex-direction: column; gap: 10px;">
+            <div id="reverse-output-diagram" style="background:#f5f5f5; border:1px solid #ccc; height:200px; overflow:auto; padding:10px; font-family:monospace;">
+                Diagram Output (Mermaid.js)...
+            </div>
+            <div id="reverse-output-source" style="background:#fff; border:1px solid #ccc; flex-grow:1; overflow:auto; padding:10px; font-family:monospace; color:#333;">
+                Source Reconstruction...
+            </div>
+        </div>
+    </div>
+    
+    <!-- Matrix Grid (Excel Clone) -->
+    <div class="window" id="win-office-grid" style="top: 80px; left: 200px; width: 800px; height: 500px; display: none;">
+        <div class="window-header">
+            <span class="win-title">Matrix Grid - [Untitled Project]</span>
+            <div>
+                <span class="ctrl-btn" onclick="minimizeWindow('win-office-grid')">_</span>
+                <span class="ctrl-btn" onclick="closeWindow('win-office-grid')">X</span>
+            </div>
+        </div>
+        <div class="app-toolbar">
+            <button onclick="newGrid()">New</button>
+            <button onclick="saveGrid()">Save</button>
+            <input type="text" id="grid-formula-bar" style="flex-grow:1; margin-left:10px; font-family:monospace;" placeholder="fx: =SUM(A1:B10)">
+        </div>
+        <div class="window-content" style="padding: 0; overflow: auto; background: #fff;">
+            <table id="matrix-grid-table" style="border-collapse: collapse; width: 100%; font-family: sans-serif; font-size: 13px;">
+                <!-- Grid will be generated via JS -->
+            </table>
+        </div>
+    </div>
+
+    <!-- Matrix Script (Word Clone) -->
+    <div class="window" id="win-office-script" style="top: 100px; left: 250px; width: 600px; height: 600px; display: none;">
+        <div class="window-header">
+            <span class="win-title">Matrix Script - [README.md]</span>
+            <div>
+                <span class="ctrl-btn" onclick="minimizeWindow('win-office-script')">_</span>
+                <span class="ctrl-btn" onclick="closeWindow('win-office-script')">X</span>
+            </div>
+        </div>
+        <div class="app-toolbar">
+            <button onclick="applyBold()"><b>B</b></button>
+            <button onclick="applyItalic()"><i>I</i></button>
+            <button onclick="saveScript()">Save to GitHub</button>
+            <span style="margin-left:auto; font-size:11px; color:#666;">Refraction Mode: ON</span>
+        </div>
+        <div class="window-content" style="padding: 20px; background: #fff;">
+            <textarea id="script-editor" style="width: 100%; height: 100%; border: none; outline: none; font-family: 'Segoe UI', serif; font-size: 14px; line-height: 1.6; resize: none;" placeholder="Start documenting the evolution..."></textarea>
+        </div>
+    </div>
+    
+    <!-- Mind Palace (NXEngine) -->
+    <div class="window" id="win-mind-palace" style="top: 50px; left: 150px; width: 700px; height: 550px; display: none;">
+        <div class="window-header">
+            <span class="win-title">NXEngine: Strategic Mind Palace</span>
+            <div>
+                <span class="ctrl-btn" onclick="minimizeWindow('win-mind-palace')">_</span>
+                <span class="ctrl-btn" onclick="closeWindow('win-mind-palace')">X</span>
+            </div>
+        </div>
+        <div class="app-toolbar">
+            <button onclick="loadMindPalace()">Refresh Graph</button>
+            <button onclick="openAddNodeDialog()">+ Add Axiom/Pattern</button>
+        </div>
+        <div class="window-content" style="display: flex; gap: 10px; padding: 10px; background: #f0f0f0;">
+            <div id="mind-palace-graph" style="flex: 2; background: #fff; border: 1px solid #ccc; position: relative; overflow: hidden;">
+                <!-- Visualization Placeholder -->
+                <div style="padding: 20px; color: #666; text-align: center; font-style: italic;">
+                    Topology Visualization Booting...
+                </div>
+                <div id="graph-node-list" style="padding: 10px;"></div>
+            </div>
+            <div id="mind-palace-details" style="flex: 1; background: #e8eaf6; border: 1px solid #c5cae9; padding: 10px; font-family: monospace; font-size: 12px; overflow-y: auto;">
+                <strong>Node Details</strong><br><hr>
+                Select an entity to view strategic intent.
+            </div>
+        </div>
+    </div>
+    
+    <!-- Research Lab -->
+    <div class="window" id="win-research-lab" style="top: 250px; left: 100px; width: 600px; height: 450px; display: none;">
+        <div class="window-header">
+            <span class="win-title">Wrapper Research Lab (Brute-Force Mode)</span>
+            <div>
+                <span class="ctrl-btn" onclick="minimizeWindow('win-research-lab')">_</span>
+                <span class="ctrl-btn" onclick="closeWindow('win-research-lab')">X</span>
+            </div>
+        </div>
+        <div class="app-toolbar">
+            <button onclick="startBruteForce()">Start Permutation Engine</button>
+            <button onclick="stopBruteForce()" style="background:#800000; color:#fff;">Emergency Halt</button>
+        </div>
+        <div class="window-content" style="background: #000; color: #7e57c2; font-family: monospace; padding: 10px; overflow-y: auto;">
+            <div id="research-lab-log">[*] Lab initialized. Ready for API spoofing simulation...</div>
+        </div>
+    </div>
+
+    <!-- System Restore -->
+    <div class="window" id="win-system-restore" style="top: 100px; left: 400px; width: 500px; height: 400px; display: none;">
+        <div class="window-header">
+            <span class="win-title">H2O Matrix: CE System Restore</span>
+            <div>
+                <span class="ctrl-btn" onclick="minimizeWindow('win-system-restore')">_</span>
+                <span class="ctrl-btn" onclick="closeWindow('win-system-restore')">X</span>
+            </div>
+        </div>
+        <div class="app-toolbar">
+            <button onclick="createRestorePoint()">Create Snapshot</button>
+            <button onclick="syncOneDrive()">Sync OneDrive</button>
+        </div>
+        <div class="window-content" style="padding: 10px;">
+            <div style="margin-bottom:10px; font-weight:bold;">Available Restore Points:</div>
+            <table class="excel95">
+                <thead><tr><th>Date</th><th>Type</th><th>Hash</th><th>Action</th></tr></thead>
+                <tbody id="restore-list-body"></tbody>
+            </table>
+            <div id="restore-status" style="margin-top:10px; color: #d32f2f; font-weight: bold;"></div>
+        </div>
+    </div>
+    
+    <!-- Swarm Status (MSN/Sims Mode) -->
+    <div class="window" id="win-swarm-status" style="top: 200px; left: 350px; width: 350px; height: 500px; display: none; background: #fff; border: 2px solid #0050a0;">
+        <div class="window-header" style="background: linear-gradient(to right, #0080ff, #0050a0);">
+            <span class="win-title" style="color: #fff;">Matrix Messenger (Swarm Live)</span>
+            <div>
+                <span class="ctrl-btn" onclick="minimizeWindow('win-swarm-status')">_</span>
+                <span class="ctrl-btn" onclick="closeWindow('win-swarm-status')">X</span>
+            </div>
+        </div>
+        <div class="window-content" style="padding: 0; display: flex; flex-direction: column; height: calc(100% - 30px);">
+            <div id="swarm-user-profile" style="padding: 10px; background: #e1f5fe; border-bottom: 1px solid #ccc; display: flex; align-items: center; gap: 10px;">
+                <div style="width: 50px; height: 50px; background: #fff; border: 1px solid #999; border-radius: 5px; display:flex; justify-content:center; align-items:center; font-size:24px;">👤</div>
+                <div>
+                    <div style="font-weight: bold; color: #0050a0;">Hive Master</div>
+                    <div style="font-size: 11px; color: #666;">Status: Command Center Active</div>
+                </div>
+            </div>
+            <div id="swarm-list-container" style="flex-grow: 1; overflow-y: auto; padding: 5px;">
+                <!-- Agents populate here -->
+            </div>
+            <div style="padding: 5px; background: #f0f0f0; border-top: 1px solid #ccc; font-size: 10px; color: #888; text-align: center;">
+                Sims-Logic: AI Happiness Monitoring Enabled
+            </div>
+        </div>
+    </div>
+    
+    <!-- Model Manager -->
+    <div class="window" id="win-models" style="top: 150px; left: 150px; width: 450px; height: 350px; display: none;">
+        <div class="window-header">
+            <span class="win-title">Model Manifestation Manager</span>
+            <div>
+                <span class="ctrl-btn" onclick="minimizeWindow('win-models')">_</span>
+                <span class="ctrl-btn" onclick="closeWindow('win-models')">X</span>
+            </div>
+        </div>
+        <div class="app-toolbar">
+            <button onclick="triggerModelFetch()" style="background:#000080; color:#fff;">Fetch GGUF Weights</button>
+            <button onclick="loadLocalModels()">Refresh List</button>
+        </div>
+        <div class="window-content" style="padding: 10px;">
+            <table class="excel95">
+                <thead><tr><th>Model Name</th><th>Size</th><th>Status</th></tr></thead>
+                <tbody id="model-list-body"></tbody>
+            </table>
+            <div id="model-fetch-status" style="margin-top:10px; font-size:12px; font-family:monospace;"></div>
+        </div>
+    </div>
+
+    <!-- Swarm Registry Monitor -->
+    <div class="window" id="win-swarm-registry" style="top: 120px; left: 200px; width: 550px; height: 400px; display: none;">
+        <div class="window-header">
+            <span class="win-title">Active Swarm Registry</span>
+            <div>
+                <span class="ctrl-btn" onclick="minimizeWindow('win-swarm-registry')">_</span>
+                <span class="ctrl-btn" onclick="closeWindow('win-swarm-registry')">X</span>
+            </div>
+        </div>
+        <div class="app-toolbar">
+            <button onclick="loadSwarmRegistry()">Refresh Roster</button>
+        </div>
+        <div class="window-content" style="padding: 10px;">
+            <table class="excel95">
+                <thead><tr><th>Agent ID</th><th>Role</th><th>IP</th><th>Status</th></tr></thead>
+                <tbody id="registry-list-body"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Operations Manual -->
+    <div class="window" id="win-ops-manual" style="top: 80px; left: 250px; width: 650px; height: 500px; display: none;">
+        <div class="window-header">
+            <span class="win-title">H2O Matrix: Operations Manual</span>
+            <div>
+                <span class="ctrl-btn" onclick="minimizeWindow('win-ops-manual')">_</span>
+                <span class="ctrl-btn" onclick="closeWindow('win-ops-manual')">X</span>
+            </div>
+        </div>
+        <div class="window-content" id="ops-manual-content" style="padding: 20px; font-family: 'Segoe UI', sans-serif; line-height: 1.6;">
+            Loading detailed documentation...
+        </div>
+    </div>
+    
+    <!-- Axiomatic Grid -->
+    <div class="window" id="win-axiomatic" style="top: 100px; left: 100px; width: 500px; height: 500px; display: none;">
+        <div class="window-header">
+            <span class="win-title">Axiomatic Grid (System Health)</span>
+            <div>
+                <span class="ctrl-btn" onclick="minimizeWindow('win-axiomatic')">_</span>
+                <span class="ctrl-btn" onclick="closeWindow('win-axiomatic')">X</span>
+            </div>
+        </div>
+        <div class="window-content" style="background: #000; color: #0f0; display: grid; grid-template-columns: repeat(5, 1fr); gap: 2px; padding: 5px;">
+            <!-- Grid generated via JS -->
+            <div id="axiom-grid-container" style="grid-column: span 5; display: grid; grid-template-columns: repeat(5, 1fr); gap: 5px;"></div>
+            <div id="axiom-details" style="grid-column: span 5; padding: 10px; border-top: 1px solid #0f0; font-family: monospace; height: 100px; overflow-y: auto;">
+                Select a node for details...
+            </div>
+        </div>
+    </div>
+
+    <!-- Matrix Config -->
+    <div class="window" id="win-matrix-config" style="top: 50px; left: 300px; width: 550px; height: 450px; display: none;">
+        <div class="window-header">
+            <span class="win-title">H2O Matrix Master Configuration</span>
+            <div>
+                <span class="ctrl-btn" onclick="minimizeWindow('win-matrix-config')">_</span>
+                <span class="ctrl-btn" onclick="closeWindow('win-matrix-config')">X</span>
+            </div>
+        </div>
+        <div class="window-content" style="padding: 10px;">
+            <fieldset>
+                <legend>Gmail Me-to-Me Harvesting</legend>
+                <div style="display:grid; grid-template-columns: 100px 1fr; gap: 5px; margin-bottom: 5px;">
+                    <label>Email:</label> <input type="text" id="cfg-email" placeholder="user@gmail.com">
+                    <label>App Pass/Token:</label> <input type="password" id="cfg-email-pass" placeholder="oauth2:REFRESH_TOKEN or app_password">
+                    <label>IMAP Host:</label> <input type="text" id="cfg-imap" value="imap.gmail.com">
+                </div>
+                <button onclick="saveEmailConfig()">Save Email Settings</button>
+            </fieldset>
+            <fieldset>
+                <legend>GitHub OAuth Bridge</legend>
+                <div style="display:grid; grid-template-columns: 100px 1fr; gap: 5px; margin-bottom: 5px;">
+                    <label>GitHub Token:</label> <input type="password" id="cfg-github-token" placeholder="ghp_xxxxxxxxxxxx">
+                </div>
+                <button onclick="saveGithubConfig()">Save GitHub OAuth</button>
+            </fieldset>
+            <fieldset>
+                <legend>DePIN / Shared Compute</legend>
+                <div style="display:grid; grid-template-columns: 100px 1fr; gap: 5px; margin-bottom: 5px;">
+                    <label>Node ID:</label> <input type="text" id="cfg-node-id" readonly style="background:#eee;">
+                    <label>Master Key:</label> <input type="password" id="cfg-master-key" placeholder="sha256 whitelist key">
+                </div>
+                <button onclick="generateNodeId()">Regenerate Identity</button>
+                <button onclick="saveNodeConfig()">Save Node Settings</button>
+            </fieldset>
+        </div>
+    </div>
+    
+    <!-- Swarm Chat -->
+    <div class="window" id="win-swarm" style="top: 130px; left: 130px; width: 650px; height: 450px; display: none;">
+        <div class="window-header">
+            <span class="win-title">Multi-Agent Swarm Chat</span>
+            <div>
+                <span class="ctrl-btn" onclick="minimizeWindow('win-swarm')">_</span>
+                <span class="ctrl-btn" onclick="closeWindow('win-swarm')">X</span>
+            </div>
+        </div>
+        <div class="app-toolbar">
+            <input type="text" id="swarm-topic" placeholder="Enter a topic for the swarm..." style="flex-grow:1;">
+            <button onclick="startSwarm()">Start Brainstorm</button>
+        </div>
+        <div class="window-content" id="swarm-out" style="padding: 15px; font-family: sans-serif; font-size: 16px; line-height: 1.5; display:flex; flex-direction:column; gap:10px;">
+            <div><i>Welcome to the Swarm. Enter a topic above to initiate a multi-agent brainstorm session.</i></div>
+        </div>
+    </div>
+    <!-- Terminal Emulator -->
+    <div class="window" id="win-terminal" style="top: 100px; left: 180px; width: 600px; height: 400px; display: none;">
+        <div class="window-header">
+            <span class="win-title">MS-DOS Prompt</span>
+            <div>
+                <span class="ctrl-btn" onclick="minimizeWindow('win-terminal')">_</span>
+                <span class="ctrl-btn" onclick="closeWindow('win-terminal')">X</span>
+            </div>
+        </div>
+        <div class="window-content" style="display: flex; flex-direction: column; background: #000;">
+            <div id="term-out" style="flex-grow: 1; background: #000; color: #ccc; font-family: 'Courier New', monospace; padding: 10px; overflow-y: auto; font-size: 16px; line-height: 1.2;">
+                Microsoft(R) Windows DOS<br>(C)Copyright Microsoft Corp 1990-1999.<br><br>C:\&gt; 
+            </div>
+            <input type="text" id="term-in" style="width: 100%; border: none; background: #000; color: #ccc; font-family: 'Courier New', monospace; outline: none; font-size: 16px; padding: 10px; box-sizing: border-box;" placeholder="Type raw bash commands here...">
+        </div>
+    </div>
+
+    <!-- AI Clippy Assistant -->
+    <div id="clippy-container" style="display: none; position: absolute; bottom: 80px; right: 20px; z-index: 4000; display: flex; align-items: flex-end; gap: 10px;">
+        <div id="clippy-speech" style="display: none; background: #ffffe1; border: 2px solid #000; padding: 15px; border-radius: 10px; max-width: 250px; font-family: 'Comic Sans MS', sans-serif; font-size: 16px; box-shadow: 4px 4px 5px rgba(0,0,0,0.3); position: relative;">
+            <span id="clippy-text">It looks like you're writing a letter. Would you like help?</span>
+            <div style="margin-top:10px; display:flex; gap:5px;">
+                <input type="text" id="clippy-input" placeholder="Matrix command..." style="flex-grow:1; font-size:12px;">
+                <button onclick="clippyAsk()" style="font-size:10px;">Ask</button>
+                <button onclick="clippyLearn()" style="font-size:10px;">Learn</button>
+                <button onclick="clippyFlow()" style="font-size:10px; background: #000080; color: #fff;">Flow</button>
+            </div>
+            <div style="position: absolute; bottom: -10px; right: 20px; width: 0; height: 0; border-left: 10px solid transparent; border-right: 10px solid transparent; border-top: 10px solid #000;"></div>
+            <div style="position: absolute; bottom: -7px; right: 22px; width: 0; height: 0; border-left: 8px solid transparent; border-right: 8px solid transparent; border-top: 8px solid #ffffe1;"></div>
+        </div>
+        <div id="clippy-icon" style="font-size: 40px; background: #fff; border-radius: 50%; border: 2px solid #000; width: 60px; height: 60px; display: flex; justify-content: center; align-items: center; box-shadow: 2px 2px 5px rgba(0,0,0,0.5); cursor: pointer;" onclick="toggleClippyHint()">📎</div>
+    </div>
+
+    <!-- Git GUI Client -->
+    <div class="window" id="win-git" style="top: 150px; left: 150px; width: 600px; height: 450px; display: none;">
+        <div class="window-header">
+            <span class="win-title">Git GUI Client</span>
+            <div>
+                <span class="ctrl-btn" onclick="minimizeWindow('win-git')">_</span>
+                <span class="ctrl-btn" onclick="closeWindow('win-git')">X</span>
+            </div>
+        </div>
+        <div class="app-toolbar" style="display:flex; align-items:center;">
+            <button onclick="gitStatus()">Refresh Status</button>
+            <input type="text" id="git-msg" placeholder="Commit message..." style="flex-grow:1; font-size:16px;">
+            <label style="margin:0 5px;"><input type="checkbox" id="git-push"> Push</label>
+            <button onclick="gitCommit()">Commit All</button>
+        </div>
+        <div class="window-content" style="display:flex; flex-direction:column; background:#fff;">
+            <div id="git-out" style="flex-grow:1; padding:15px; font-family:monospace; white-space:pre-wrap; font-size:16px;">Loading git status...</div>
+        </div>
+    </div>
+
+    <div class="window" id="win-cmd" style="top: 80px; left: 150px; width: 600px; height: 400px; display: none;">
+        <div class="window-header">
+            <span class="win-title">Agent Command Prompt</span>
+            <div>
+                <span class="ctrl-btn" onclick="minimizeWindow('win-cmd')">_</span>
+                <span class="ctrl-btn" onclick="closeWindow('win-cmd')">X</span>
+            </div>
+        </div>
+        <div class="window-content" style="display: flex; flex-direction: column;">
+            <div id="cmd-out">MATRIX CE v1.1 [SINGULARITY READY]<br>Neural-Symbolic Substrate: ONLINE<br>Awaiting directive...<br>> </div>
+            <input type="text" id="cmd-in" autofocus>
+        </div>
+    </div>
+
+    <!-- NetDB Explorer -->
+    <div class="window" id="win-db" style="top: 50px; left: 50px; width: 750px; height: 500px; display: none;">
+        <div class="window-header">
+            <span class="win-title">NetDB CE - Database Neighborhood</span>
+            <div>
+                <span class="ctrl-btn" onclick="minimizeWindow('win-db')">_</span>
+                <span class="ctrl-btn" onclick="closeWindow('win-db')">X</span>
+            </div>
+        </div>
+        <div class="app-toolbar" style="padding: 2px 10px; display: flex; align-items: center; justify-content: space-between;">
+            <div><button onclick="viewSchema()">View Schema</button></div>
+            <span id="db-current-path" style="font-size: 14px; font-weight: bold;"></span>
+        </div>
+        <div class="window-content">
+            <div class="explorer-container">
+                <div class="side-pane" id="db-list">
+                    <b>Neighborhood</b>
+                    <div style="padding: 10px;">Scanning substrate...</div>
+                </div>
+                <div class="main-pane" id="db-viewer">
+                    <h3 id="viewer-title">Global View</h3>
+                    <hr>
+                    <div id="viewer-content">Select a matrix from the neighborhood to explore its weights and states.</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- My Documents -->
+    <div class="window" id="win-docs" style="top: 120px; left: 200px; width: 500px; height: 400px; display: none;">
+        <div class="window-header">
+            <span class="win-title">My Documents</span>
+            <div>
+                <span class="ctrl-btn" onclick="minimizeWindow('win-docs')">_</span>
+                <span class="ctrl-btn" onclick="closeWindow('win-docs')">X</span>
+            </div>
+        </div>
+        <div class="app-toolbar">
+            <button onclick="explorerUp('docs')">Up</button>
+            <button onclick="explorerNewFolder('docs')">New Folder</button>
+            <button onclick="explorerNewFile('docs')">New Text File</button>
+            <button onclick="mapNetworkDrive()">Map Drive</button>
+            <input type="text" id="docs-path" value="PocketMatrix/documents" style="flex-grow:1; font-size:12px;" readonly>
+        </div>
+        <div class="window-content" id="docs-content" style="padding: 10px;" oncontextmenu="showContextMenu(event, 'docs')">
+            Loading projects...
+        </div>
+    </div>
+
+    <!-- Recycle Bin -->
+    <div class="window" id="win-recycle" style="top: 140px; left: 240px; width: 500px; height: 400px; display: none;">
+        <div class="window-header">
+            <span class="win-title">Recycle Bin</span>
+            <div>
+                <span class="ctrl-btn" onclick="minimizeWindow('win-recycle')">_</span>
+                <span class="ctrl-btn" onclick="closeWindow('win-recycle')">X</span>
+            </div>
+        </div>
+        <div class="app-toolbar">
+            <button onclick="explorerUp('recycle')">Refresh</button>
+            <button onclick="emptyRecycleBin()">Empty Recycle Bin</button>
+            <input type="text" id="recycle-path" value="PocketMatrix/RecycleBin" style="flex-grow:1; font-size:12px;" readonly>
+        </div>
+        <div class="window-content" id="recycle-content" style="padding: 10px;">
+            Loading trash...
+        </div>
+    </div>
+
+    <!-- Viper Notes -->
+    <div class="window" id="win-vipernotes" style="top: 80px; left: 150px; width: 600px; height: 450px; display: none; z-index: 100;">
+        <div class="window-header">
+            <span class="win-title">Viper Notes (Pedagogy Organizer)</span>
+            <div>
+                <span class="ctrl-btn" onclick="minimizeWindow('win-vipernotes')">_</span>
+                <span class="ctrl-btn" onclick="closeWindow('win-vipernotes')">X</span>
+            </div>
+        </div>
+        <div class="app-toolbar">
+            <button onclick="loadViperNotes()">Refresh</button>
+            <button onclick="harvestViperNotes()" style="background:#000080; color:#fff;">Harvest</button>
+            <input type="text" id="viper-new-name" placeholder="Filename..." style="width:100px;">
+            <input type="text" id="viper-new-content" placeholder="Type new note..." style="flex-grow:1;">
+            <button onclick="saveViperNote()">Save</button>
+            <span id="viper-status" style="font-size:10px; margin-left:5px;"></span>
+        </div>
+        <div class="window-content" style="display:flex; flex-direction:column; overflow:hidden; padding:0;">
+            <div id="viper-tabs" style="display:flex; border-bottom: 1px solid #fff; background: #c0c0c0; overflow-x:auto;">
+                <!-- Tabs will be injected here -->
+            </div>
+            <div id="viper-content" style="flex-grow:1; background:#fff; overflow-y:auto; padding:10px; font-family:'Courier New', monospace; font-size:14px; white-space:pre-wrap;">
+                Loading notes...
+            </div>
+        </div>
+    </div>
+
+    <!-- Notepad CE -->
+    <div class="window" id="win-notepad" style="top: 100px; left: 220px; width: 450px; height: 350px; display: none;">
+        <div class="window-header">
+            <span class="win-title">Notepad CE</span>
+            <div>
+                <span class="ctrl-btn" onclick="minimizeWindow('win-notepad')">_</span>
+                <span class="ctrl-btn" onclick="closeWindow('win-notepad')">X</span>
+            </div>
+        </div>
+        <div class="app-toolbar">
+            <button onclick="notepadOpen()">Open</button>
+            <button onclick="notepadSave()">Save</button>
+            <input type="text" id="np-path" placeholder="Path (e.g. notes.txt)" style="flex-grow:1; font-size:12px;">
+        </div>
+        <div class="window-content" style="display:flex; flex-direction:column; overflow:hidden;">
+            <textarea id="np-editor" style="flex-grow:1; border:none; resize:none; font-family:'Courier New', monospace; outline:none; padding:5px; font-size:14px;"></textarea>
+        </div>
+    </div>
+
+    <!-- Calculator CE -->
+    <div class="window" id="win-calc" style="top: 150px; left: 300px; width: 250px; display: none;">
+        <div class="window-header">
+            <span class="win-title">Calculator</span>
+            <div>
+                <span class="ctrl-btn" onclick="minimizeWindow('win-calc')">_</span>
+                <span class="ctrl-btn" onclick="closeWindow('win-calc')">X</span>
+            </div>
+        </div>
+        <div class="window-content" style="overflow:hidden;">
+            <div class="calc-grid">
+                <div id="calc-display">0</div>
+                <button onclick="calcPress('7')">7</button> <button onclick="calcPress('8')">8</button> <button onclick="calcPress('9')">9</button> <button onclick="calcPress('/')">/</button>
+                <button onclick="calcPress('4')">4</button> <button onclick="calcPress('5')">5</button> <button onclick="calcPress('6')">6</button> <button onclick="calcPress('*')">*</button>
+                <button onclick="calcPress('1')">1</button> <button onclick="calcPress('2')">2</button> <button onclick="calcPress('3')">3</button> <button onclick="calcPress('-')">-</button>
+                <button onclick="calcPress('0')">0</button> <button onclick="calcPress('.')">.</button> <button onclick="calcPress('C')">C</button> <button onclick="calcPress('+')">+</button>
+                <button onclick="calcPress('=')" style="grid-column:span 4;">=</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Paint CE -->
+    <div class="window" id="win-paint" style="top: 110px; left: 180px; width: 500px; height: 400px; display: none;">
+        <div class="window-header">
+            <span class="win-title">Paint CE</span>
+            <div>
+                <span class="ctrl-btn" onclick="minimizeWindow('win-paint')">_</span>
+                <span class="ctrl-btn" onclick="closeWindow('win-paint')">X</span>
+            </div>
+        </div>
+        <div class="app-toolbar">
+            <button onclick="paintClear()">Clear</button>
+            <button onclick="paintSave()">Save to Documents</button>
+            <input type="color" id="paint-color" value="#000000">
+        </div>
+        <div class="window-content" style="overflow:hidden; position:relative;">
+            <canvas id="paint-canvas" width="496" height="340" style="cursor:crosshair;"></canvas>
+        </div>
+    </div>
+
+    <!-- Run Dialog -->
+    <div class="window" id="win-run" style="top: 300px; left: 300px; width: 350px; display: none;">
+        <div class="window-header">
+            <span class="win-title">Run</span>
+            <div><span class="ctrl-btn" onclick="closeWindow('win-run')">X</span></div>
+        </div>
+        <div class="window-content" style="padding:15px; display:flex; flex-direction:column; gap:10px;">
+            <div style="display:flex; gap:10px; align-items:center;">
+                <div class="icon-img" style="background:#000; border:1px solid #fff;"></div>
+                <span>Type the name of a program or bash command, and Windows will open it for you.</span>
+            </div>
+            <div style="display:flex; align-items:center; gap:10px;">
+                <b>Open:</b>
+                <input type="text" id="run-input" style="flex-grow:1; padding:2px;">
+            </div>
+            <div style="display:flex; justify-content:flex-end; gap:5px; margin-top:10px;">
+                <button onclick="executeRun()" style="width:80px;">OK</button>
+                <button onclick="closeWindow('win-run')" style="width:80px;">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Image Viewer -->
+    <div class="window" id="win-image-viewer" style="top: 150px; left: 200px; width: 600px; height: 500px; display: none;">
+        <div class="window-header">
+            <span class="win-title" id="image-viewer-title">Image Viewer</span>
+            <div>
+                <span class="ctrl-btn" onclick="minimizeWindow('win-image-viewer')">_</span>
+                <span class="ctrl-btn" onclick="closeWindow('win-image-viewer')">X</span>
+            </div>
+        </div>
+        <div class="app-toolbar" style="justify-content: center; background: #fff;">
+            <img id="iv-display" src="" style="max-width: 100%; max-height: 440px; object-fit: contain;">
+        </div>
+    </div>
+
+    <!-- Settings -->
+    <div class="window" id="win-settings" style="top: 150px; left: 250px; width: 400px; display: none;">
+        <div class="window-header">
+            <span class="win-title">System Settings Panel</span>
+            <div>
+                <span class="ctrl-btn" onclick="minimizeWindow('win-settings')">_</span>
+                <span class="ctrl-btn" onclick="closeWindow('win-settings')">X</span>
+            </div>
+        </div>
+        <div class="window-content" style="padding:10px;">
+            <fieldset>
+                <legend>Desktop Theme</legend>
+                <button onclick="changeTheme('#008080')">Classic Teal</button>
+                <button onclick="changeTheme('#000000')">Dark Mode</button>
+                <button onclick="changeTheme('#3a6ea5')">Win XP Blue</button>
+                <hr style="margin:10px 0; border:1px inset #fff;">
+                <input type="text" id="bg-url" placeholder="Background Image URL..." style="width:100%; box-sizing:border-box; margin-bottom:5px; padding:2px;">
+                <button onclick="changeBgImage()">Set Background Image</button>
+            </fieldset>
+        </div>
+    </div>
+
+    <!-- Help & Support -->
+    <div class="window" id="win-help" style="top: 130px; left: 130px; width: 600px; height: 450px; display: none;">
+        <div class="window-header">
+            <span class="win-title">Help & Support Viewer</span>
+            <div>
+                <span class="ctrl-btn" onclick="minimizeWindow('win-help')">_</span>
+                <span class="ctrl-btn" onclick="closeWindow('win-help')">X</span>
+            </div>
+        </div>
+        <div class="window-content" id="help-content" style="padding:10px; font-family:serif; line-height:1.4;">
+            Loading THE_SYSTEM_BIBLE.md...
+        </div>
+    </div>
+
+    <!-- Agentic Task Scheduler -->
+    <div class="window" id="win-scheduler" style="top: 200px; left: 200px; width: 600px; height: 400px; display: none;">
+        <div class="window-header">
+            <span class="win-title">Agentic Task Scheduler</span>
+            <div>
+                <span class="ctrl-btn" onclick="minimizeWindow('win-scheduler')">_</span>
+                <span class="ctrl-btn" onclick="closeWindow('win-scheduler')">X</span>
+            </div>
+        </div>
+        <div class="app-toolbar">
+            <input type="text" id="sched-cron" placeholder="Cron (e.g. * * * * *)" style="width:120px;">
+            <input type="text" id="sched-cmd" placeholder="Command / AI Intent" style="flex-grow:1;">
+            <button onclick="addScheduledTask()">Add Task</button>
+            <button onclick="loadScheduler()">Refresh</button>
+        </div>
+        <div class="window-content" style="padding: 10px; overflow-y: auto;">
+            <table class="excel95">
+                <thead><tr><th style="width:150px;">Schedule</th><th>Task/Command</th><th style="width:100px;">Status</th></tr></thead>
+                <tbody id="sched-list"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- System Monitor Graphs -->
+    <div class="window" id="win-taskmgr" style="top: 180px; left: 180px; width: 500px; height: 350px; display: none;">
+        <div class="window-header">
+            <span class="win-title">System Monitor (Task Manager)</span>
+            <div>
+                <span class="ctrl-btn" onclick="minimizeWindow('win-taskmgr')">_</span>
+                <span class="ctrl-btn" onclick="closeWindow('win-taskmgr')">X</span>
+            </div>
+        </div>
+        <div class="window-content" style="padding: 15px; display: flex; flex-direction: column; gap: 15px;">
+            <div>
+                <div style="display:flex; justify-content:space-between; margin-bottom:5px;">
+                    <strong>CPU Usage History</strong> <span id="cpu-lbl">0%</span>
+                </div>
+                <canvas id="cpu-graph" width="460" height="100" style="background:#000; border:2px inset #fff;"></canvas>
+            </div>
+            <div>
+                <div style="display:flex; justify-content:space-between; margin-bottom:5px;">
+                    <strong>RAM Usage History</strong> <span id="ram-lbl">0%</span>
+                </div>
+                <canvas id="ram-graph" width="460" height="100" style="background:#000; border:2px inset #fff;"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- Log Viewer -->
+    <div class="window" id="win-logs" style="top: 160px; left: 160px; width: 600px; height: 450px; display: none;">
+        <div class="window-header">
+            <span class="win-title">System Log Viewer</span>
+            <div>
+                <span class="ctrl-btn" onclick="minimizeWindow('win-logs')">_</span>
+                <span class="ctrl-btn" onclick="closeWindow('win-logs')">X</span>
+            </div>
+        </div>
+        <div class="app-toolbar" style="display:flex; align-items:center;">
+            <select id="log-select" style="flex-grow:1; font-size:16px;">
+                <option value="bridge_ghost.log">Bridge Daemon (bridge_ghost.log)</option>
+                <option value="llama_ghost.log">Neural Core (llama_ghost.log)</option>
+            </select>
+            <button onclick="readLogs()">Tail Log</button>
+        </div>
+        <div class="window-content" style="display:flex; flex-direction:column; background:#000;">
+            <div id="log-out" style="flex-grow:1; padding:15px; font-family:monospace; white-space:pre-wrap; font-size:14px; color:#0f0; overflow-y:auto;">Select a log file to view tail data.</div>
+        </div>
+    </div>
+
+    <!-- API Key Manager -->
+    <div class="window" id="win-keys" style="top: 170px; left: 170px; width: 450px; height: 350px; display: none;">
+        <div class="window-header">
+            <span class="win-title">API Key Vault</span>
+            <div>
+                <span class="ctrl-btn" onclick="minimizeWindow('win-keys')">_</span>
+                <span class="ctrl-btn" onclick="closeWindow('win-keys')">X</span>
+            </div>
+        </div>
+        <div class="app-toolbar" style="display:flex; align-items:center;">
+            <input type="text" id="key-service" placeholder="Service (e.g. OpenAI)" style="width:120px;">
+            <input type="password" id="key-value" placeholder="API Key..." style="flex-grow:1;">
+            <button onclick="saveApiKey()">Save</button>
+        </div>
+        <div class="window-content" style="padding: 10px; overflow-y: auto;">
+            <table class="excel95">
+                <thead><tr><th>Service</th><th>Status</th></tr></thead>
+                <tbody id="keys-list"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Readiness Check -->
+    <div class="window" id="win-diag" style="top: 180px; left: 180px; width: 500px; height: 350px; display: none;">
+        <div class="window-header">
+            <span class="win-title">Phase 10 Readiness Check</span>
+            <div>
+                <span class="ctrl-btn" onclick="minimizeWindow('win-diag')">_</span>
+                <span class="ctrl-btn" onclick="closeWindow('win-diag')">X</span>
+            </div>
+        </div>
+        <div class="app-toolbar" style="display:flex; justify-content:center;">
+            <button onclick="runDiagnostics()" style="font-weight:bold; width:150px; height:30px;">Run Diagnostics</button>
+        </div>
+        <div class="window-content" id="diag-out" style="padding: 15px; font-family: monospace; white-space: pre-wrap; font-size: 16px;">
+            Awaiting diagnostic execution...
+        </div>
+    </div>
+    </div>
+
+    <!-- Start Menu -->
+    <div id="start-menu">
+        <div class="start-sidebar">Matrix CE</div>
+        <div class="start-items">
+            <div class="start-item">
+                📁 Programs <span class="arrow"></span>
+                <div class="submenu">
+                    <div class="start-item">📁 Accessories <span class="arrow"></span>
+                        <div class="submenu">
+                            <div class="start-item" onclick="openWindow('win-notepad')">📝 Notepad CE</div>
+                            <div class="start-item" onclick="openWindow('win-calc')">🧮 Calculator CE</div>
+                            <div class="start-item" onclick="openWindow('win-paint')">🎨 Paint CE</div>
+                        </div>
+                    </div>
+                    <div class="start-item" onclick="openWindow('win-cmd')">📟 Command Prompt</div>
+                    <div class="start-item" onclick="openWindow('win-terminal')">💻 MS-DOS Prompt</div>
+                </div>
+            </div>
+            <div class="start-item">
+                👤 Users <span class="arrow"></span>
+                <div class="submenu">
+                    <div class="start-item">👤 Administrator</div>
+                    <div class="start-item">👤 Guest</div>
+                </div>
+            </div>
+            <div class="start-item" onclick="toggleClippy()">📎 Toggle AI Assistant</div>
+            <div class="start-item">
+                📁 Documents <span class="arrow"></span>
+                <div class="submenu">
+                    <div class="start-item" onclick="openWindow('win-vipernotes'); loadViperNotes();">🐍 Viper Notes</div>
+                    <div class="start-item" onclick="openWindow('win-docs')">📁 My Documents</div>
+                    <div class="start-item" onclick="openWindow('win-db')">🗃️ Database Neighborhood</div>
+                </div>
+            </div>
+            <div class="start-item" onclick="openWindow('win-settings')">⚙️ Settings</div>
+            <div class="start-item" onclick="openWindow('win-help')">❓ Help & Support</div>
+            <div class="start-item" onclick="openWindow('win-run')">🏃 Run...</div>
+            <hr style="border: 1px inset #fff; width: 100%; margin: 2px 0;">
+            <div class="start-item" onclick="location.reload()">🔒 Shut Down...</div>
+        </div>
+    </div>
+
+    <!-- Taskbar -->
+    <div id="taskbar">
+        <div id="start-btn" onclick="toggleStartMenu()">
+            <div class="win-logo"></div> Start
+        </div>
+        <div id="taskbar-windows"></div>
+        <div style="margin-left: auto; display:flex; align-items:center; margin-right: 10px; font-size: 12px; border: 2px inset #fff; padding: 2px 5px; background:var(--ce-gray); gap:8px; position:relative;">
+            <span style="cursor:pointer;" onclick="toggleVolume()">🔊
+                <div id="vol-popup" style="display:none; position:absolute; bottom:35px; right:40px; background:var(--ce-gray); border:2px outset #fff; padding:10px; width:30px; height:100px; z-index:2500;">
+                    <input type="range" id="vol-slider" min="0" max="100" value="75" style="writing-mode: bt-lr; -webkit-appearance: slider-vertical; width:20px; height:90px;" onchange="updateVolume(this.value)">
+                </div>
+            </span>
+            <span id="clock">12:00 PM</span>
+        </div>
+    </div>
+
+    <!-- Context Menu -->
+    <div id="context-menu" style="display:none; position:absolute; background:var(--ce-gray); border:2px outset #fff; z-index:3000; padding:2px;">
+        <div class="start-item" onclick="contextAction('open')">📂 Open</div>
+        <div class="start-item" onclick="contextAction('rename')">✏️ Rename</div>
+        <div class="start-item" onclick="contextAction('extract')" id="ctx-extract" style="display:none;">📦 Extract Here</div>
+        <div class="start-item" onclick="contextAction('delete')">🗑️ Delete (Recycle Bin)</div>
+        <hr style="border: 1px inset #fff; margin:2px 0;">
+        <div class="start-item" onclick="contextAction('properties')">📄 Properties</div>
+    </div>
+
+    <script>
+        // --- Core Window & Taskbar Logic ---
+        const activeWindows = {};
+
+        function toggleStartMenu() {
+            const menu = document.getElementById('start-menu');
+            menu.style.display = (menu.style.display === 'none' || menu.style.display === '') ? 'flex' : 'none';
+        }
+
+        function openWindow(id) {
+            const win = document.getElementById(id);
+            win.style.display = 'flex';
+            activeWindows[id] = true;
+            document.getElementById('start-menu').style.display = 'none';
+            focusWindow(id);
+            updateTaskbar();
+
+            if(id === 'win-db') loadDatabases();
+            if(id === 'win-docs') loadExplorer('PocketMatrix/documents', 'docs');
+            if(id === 'win-recycle') loadExplorer('PocketMatrix/RecycleBin', 'recycle');
+            if(id === 'win-help') loadHelp();
+            if(id === 'win-paint') initPaint();
+            if(id === 'win-scheduler') loadScheduler();
+            if(id === 'win-taskmgr') { if(!monitorInterval) startSystemMonitor(); }
+            if(id === 'win-run') setTimeout(() => document.getElementById('run-input').focus(), 100);
+            if(id === 'win-terminal') setTimeout(() => document.getElementById('term-in').focus(), 100);
+            if(id === 'win-swarm') setTimeout(() => document.getElementById('swarm-topic').focus(), 100);
+            if(id === 'win-git') gitStatus();
+            if(id === 'win-logs') readLogs();
+            if(id === 'win-keys') loadApiKeys();
+            if(id === 'win-matrix-config') loadMatrixConfig();
+            if(id === 'win-axiomatic') loadAxiomGrid();
+            if(id === 'win-models') loadLocalModels();
+            if(id === 'win-swarm-registry') loadSwarmRegistry();
+            if(id === 'win-swarm-status') loadSwarmStatus();
+            if(id === 'win-ops-manual') loadOpsManual();
+            if(id === 'win-research-lab') loadResearchLab();
+            if(id === 'win-system-restore') loadRestorePoints();
+            if(id === 'win-mind-palace') loadMindPalace();
+            if(id === 'win-office-grid') initOfficeGrid();
+            if(id === 'win-office-script') initOfficeScript();
+            if(id === 'win-reverse-hub') loadReverseHub();
+            if(id === 'win-genetic-audio') loadGeneticAudio();
+            if(id === 'win-qwen-max') loadQwenMax();
+        }
+
+        function closeWindow(id) {
+            document.getElementById(id).style.display = 'none';
+            delete activeWindows[id];
+            updateTaskbar();
+            if(id === 'win-taskmgr' && monitorInterval) { clearInterval(monitorInterval); monitorInterval = null; }
+        }
+
+        function minimizeWindow(id) {
+            document.getElementById(id).style.display = 'none';
+            updateTaskbar();
+        }
+
+        function focusWindow(id) {
+            document.querySelectorAll('.window').forEach(w => w.style.zIndex = 100);
+            document.getElementById(id).style.zIndex = 1000;
+            document.getElementById(id).style.display = 'flex';
+            updateTaskbar();
+        }
+
+        function updateTaskbar() {
+            const tb = document.getElementById('taskbar-windows');
+            tb.innerHTML = '';
+            document.querySelectorAll('.window').forEach(win => {
+                if(activeWindows[win.id]) {
+                    const title = win.querySelector('.win-title').innerText;
+                    const btn = document.createElement('div');
+                    btn.className = 'taskbar-btn' + (win.style.display !== 'none' && win.style.zIndex == 1000 ? ' active' : '');
+                    btn.innerText = title;
+                    btn.onclick = () => {
+                        if(win.style.display === 'none') { focusWindow(win.id); }
+                        else if(btn.classList.contains('active')) { minimizeWindow(win.id); }
+                        else { focusWindow(win.id); }
+                    };
+                    tb.appendChild(btn);
+                }
+            });
+        }
+
+        // Draggable Logic
+        document.querySelectorAll('.window-header').forEach(header => {
+            header.onmousedown = function(e) {
+                if(e.target.classList.contains('ctrl-btn')) return;
+                let win = header.parentElement;
+                focusWindow(win.id);
+
+                let shiftX = e.clientX - win.getBoundingClientRect().left;
+                let shiftY = e.clientY - win.getBoundingClientRect().top;
+
+                function moveAt(pageX, pageY) {
+                    win.style.left = pageX - shiftX + 'px';
+                    win.style.top = pageY - shiftY + 'px';
+                }
+
+                function onMouseMove(e) { moveAt(e.pageX, e.pageY); }
+                document.addEventListener('mousemove', onMouseMove);
+                
+                document.onmouseup = function() {
+                    document.removeEventListener('mousemove', onMouseMove);
+                    document.onmouseup = null;
+                };
+            };
+        });
+
+        // --- Git Client Integration ---
+        function gitStatus() {
+            const out = document.getElementById('git-out');
+            out.innerHTML = "Fetching status...";
+            fetch('/api/git/status').then(r => r.json()).then(data => {
+                if(data.error) out.innerHTML = `<span style="color:red">Error: ${data.error}</span>`;
+                else out.innerHTML = data.status_text || "Working tree clean.";
+            });
+        }
+
+        function gitCommit() {
+            const msg = document.getElementById('git-msg').value;
+            const push = document.getElementById('git-push').checked;
+            document.getElementById('git-out').innerHTML = "Committing...";
+            fetch('/api/git/commit', {
+                method: 'POST', headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({message: msg, push: push})
+            }).then(r => r.json()).then(data => {
+                if(data.error) document.getElementById('git-out').innerHTML = `<span style="color:red">Error: ${data.error}</span>`;
+                else {
+                    document.getElementById('git-out').innerHTML = `Commit successful.\n\n${data.output}`;
+                    document.getElementById('git-msg').value = '';
+                }
+            });
+        }
+
+        // --- System Logs & Keys ---
+        function readLogs() {
+            const logName = document.getElementById('log-select').value;
+            const out = document.getElementById('log-out');
+            out.innerHTML = "Fetching logs...";
+            fetch('/api/logs/read', {
+                method: 'POST', headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({log_name: logName})
+            }).then(r => r.json()).then(data => {
+                if(data.error) out.innerHTML = `<span style="color:red">Error: ${data.error}</span>`;
+                else {
+                    out.innerHTML = data.content;
+                    out.scrollTop = out.scrollHeight;
+                }
+            });
+        }
+
+        function loadApiKeys() {
+            fetch('/api/keys/list').then(r => r.json()).then(data => {
+                const list = document.getElementById('keys-list');
+                list.innerHTML = '';
+                data.forEach(k => {
+                    list.innerHTML += `<tr><td>${k.service}</td><td>[SECURED]</td></tr>`;
+                });
+            });
+        }
+
+        function saveApiKey() {
+            const service = document.getElementById('key-service').value;
+            const key = document.getElementById('key-value').value;
+            if(!service || !key) return;
+            fetch('/api/keys/save', {
+                method: 'POST', headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({service: service, key: key})
+            }).then(r => r.json()).then(data => {
+                if(data.error) alert(data.error);
+                else {
+                    document.getElementById('key-service').value = '';
+                    document.getElementById('key-value').value = '';
+                    loadApiKeys();
+                }
+            });
+        }
+
+        function runDiagnostics() {
+            const out = document.getElementById('diag-out');
+            out.innerHTML = "Running Phase 10 Diagnostics...\n\n";
+            fetch('/api/system/readiness').then(r => r.json()).then(data => {
+                if(data.error) {
+                    out.innerHTML += `<span style="color:red">Error: ${data.error}</span>`;
+                    return;
+                }
+                data.checks.forEach(c => {
+                    let color = c.status.includes('FAIL') ? 'red' : 'green';
+                    out.innerHTML += `[ <span style="color:${color}; font-weight:bold;">${c.status}</span> ] - ${c.name}\n`;
+                });
+                
+                let allPass = data.checks.every(c => !c.status.includes('FAIL'));
+                if(allPass) {
+                    out.innerHTML += `\n<span style="color:green; font-weight:bold;">PHASE 10 COMPLETE. SUBSTRATE IS FULLY OPERATIONAL.</span>`;
+                }
+            });
+        }
+
+        // --- Backend Integration ---
+        function loadDatabases() {
+            fetch('/api/databases').then(r => r.json()).then(data => {
+                const list = document.getElementById('db-list');
+                list.innerHTML = '<b>Neighborhood</b>';
+                data.forEach(db => {
+                    const div = document.createElement('div');
+                    div.className = 'db-item';
+                    div.innerHTML = `🗃️ ${db.name}`;
+                    div.onclick = () => viewDatabase(db.path, db.name);
+                    list.appendChild(div);
+                });
+            });
+        }
+
+        let activeDbPath = null;
+        let activeDbName = null;
+
+        function viewDatabase(path, name) {
+            activeDbPath = path;
+            activeDbName = name;
+            document.getElementById('db-current-path').innerText = path;
+            document.getElementById('viewer-title').innerText = `Matrix: ${name}`;
+            document.getElementById('viewer-content').innerHTML = 'Querying state...';
+            fetch('/api/db/query', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({db_path: path})
+            }).then(r => r.json()).then(data => {
+                if(data.error) {
+                    document.getElementById('viewer-content').innerText = "Error: " + data.error;
+                    return;
+                }
+                let html = `<table class="excel95"><tr><th>rowid</th>`;
+                data.columns.forEach(c => html += `<th>${c}</th>`);
+                html += `</tr>`;
+                data.rows.forEach(r => {
+                    html += `<tr>`;
+                    r.forEach(cell => html += `<td>${cell !== null ? cell : ''}</td>`);
+                    html += `</tr>`;
+                });
+                html += `</table>`;
+                document.getElementById('viewer-content').innerHTML = html;
+            });
+        }
+
+        function viewSchema() {
+            if(!activeDbPath) { alert("Select a database first."); return; }
+            document.getElementById('viewer-title').innerText = `Schema: ${activeDbName}`;
+            document.getElementById('viewer-content').innerHTML = 'Querying schema...';
+            fetch('/api/db/schema', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({db_path: activeDbPath})
+            }).then(r => r.json()).then(data => {
+                if(data.error) {
+                    document.getElementById('viewer-content').innerText = "Error: " + data.error;
+                    return;
+                }
+                let html = `<ul>`;
+                data.tables.forEach(t => {
+                    html += `<li style="margin-bottom:10px;"><b>${t.name}</b><br><pre style="background:#eee; padding:5px; font-size:12px; white-space:pre-wrap;">${t.sql}</pre></li>`;
+                });
+                html += `</ul>`;
+                document.getElementById('viewer-content').innerHTML = html;
+            });
+        }
+
+        let contextTarget = null;
+        let contextContainer = null;
+
+        function loadExplorer(path, type) {
+            document.getElementById(`${type}-path`).value = path;
+            
+            // First fetch network drives if at the root of My Documents
+            const fetchDrives = (path === 'PocketMatrix/documents') ? fetch('/api/network/drives').then(r => r.json()).catch(() => []) : Promise.resolve([]);
+            
+            Promise.all([
+                fetch('/api/files', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({path: path}) }).then(r => r.json()),
+                fetchDrives
+            ]).then(([fileData, drivesData]) => {
+                const cont = document.getElementById(`${type}-content`);
+                cont.innerHTML = '';
+                if(fileData.error) { cont.innerHTML = `Error: ${fileData.error}`; return; }
+                
+                // Render Drives First
+                if (drivesData.length > 0) {
+                    drivesData.forEach(drive => {
+                        const div = document.createElement('div');
+                        div.className = 'db-item';
+                        div.innerHTML = `🌐 ${drive.name} (${drive.path})`;
+                        div.onclick = () => alert("Network drive connection simulating...\nAccess to external IP blocked by sandbox rules.");
+                        cont.appendChild(div);
+                    });
+                    const hr = document.createElement('hr');
+                    cont.appendChild(hr);
+                }
+
+                // Render Files/Folders
+                fileData.forEach(item => {
+                    const div = document.createElement('div');
+                    div.className = 'db-item';
+                    div.innerHTML = `${item.type === 'folder' ? '📂' : '📄'} ${item.name}`;
+                    
+                    div.oncontextmenu = (e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        contextTarget = item;
+                        contextContainer = type;
+                        
+                        const menu = document.getElementById('context-menu');
+                        // Toggle Extract Option
+                        if (item.name.toLowerCase().endsWith('.zip')) {
+                            document.getElementById('ctx-extract').style.display = 'block';
+                        } else {
+                            document.getElementById('ctx-extract').style.display = 'none';
+                        }
+                        
+                        menu.style.display = 'block';
+                        menu.style.left = e.pageX + 'px';
+                        menu.style.top = e.pageY + 'px';
+                    };
+                    
+                    div.onclick = () => {
+                        if(item.type === 'folder') {
+                            loadExplorer(item.path, type);
+                        } else if(item.name.endsWith('.db') || item.name.endsWith('.sqlite')) {
+                            openWindow('win-db'); viewDatabase(item.path, item.name);
+                        } else if(item.name.toLowerCase().endsWith('.png') || item.name.toLowerCase().endsWith('.jpg')) {
+                            openWindow('win-image-viewer');
+                            document.getElementById('image-viewer-title').innerText = `Image Viewer - ${item.name}`;
+                            document.getElementById('iv-display').src = '';
+                            fetch('/api/file/read_image', {
+                                method: 'POST', headers: {'Content-Type': 'application/json'},
+                                body: JSON.stringify({path: item.path})
+                            }).then(r => r.json()).then(data => {
+                                if(data.error) alert(data.error);
+                                else document.getElementById('iv-display').src = data.content;
+                            });
+                        } else if(item.name.toLowerCase().endsWith('.zip')) {
+                            // Don't auto open zip, prompt
+                            alert("Right-click and select 'Extract Here' to unzip this archive.");
+                        } else {
+                            openWindow('win-notepad');
+                            document.getElementById('np-path').value = item.path;
+                            notepadOpen();
+                        }
+                    };
+                    cont.appendChild(div);
+                });
+            });
+        }
+
+        function explorerUp(type) {
+            const current = document.getElementById(`${type}-path`).value;
+            if(current === 'PocketMatrix' || current === '' || current === '.') return; // Don't go too high
+            const parent = current.substring(0, current.lastIndexOf('/'));
+            if(parent) loadExplorer(parent, type);
+        }
+
+        function explorerNewFolder(type) {
+            const currentPath = document.getElementById(`${type}-path`).value;
+            const name = prompt("New Folder Name:");
+            if(!name) return;
+            fetch('/api/file/mkdir', {
+                method: 'POST', headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({path: currentPath + '/' + name})
+            }).then(() => loadExplorer(currentPath, type));
+        }
+
+        function explorerNewFile(type) {
+            const currentPath = document.getElementById(`${type}-path`).value;
+            const name = prompt("New Text File Name (e.g. note.txt):");
+            if(!name) return;
+            fetch('/api/file/write', {
+                method: 'POST', headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({path: currentPath + '/' + name, content: ""})
+            }).then(() => loadExplorer(currentPath, type));
+        }
+
+        function mapNetworkDrive() {
+            const name = prompt("Enter a friendly name for the Network Drive (e.g., 'NAS Server'):");
+            if(!name) return;
+            const ipPath = prompt("Enter the IP or Network Path (e.g., '//192.168.1.100/share'):");
+            if(!ipPath) return;
+            
+            fetch('/api/network/map', {
+                method: 'POST', headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({name: name, path: ipPath})
+            }).then(r => r.json()).then(data => {
+                if(data.error) alert(data.error);
+                else {
+                    alert("Network drive mapped successfully.");
+                    // Refresh root to show drive
+                    loadExplorer('PocketMatrix/documents', 'docs');
+                }
+            });
+        }
+
+        // Context Menu Logic
+        document.addEventListener('click', () => {
+            document.getElementById('context-menu').style.display = 'none';
+        });
+
+        function contextAction(action) {
+            if(!contextTarget) return;
+            const currentPath = document.getElementById(`${contextContainer}-path`).value;
+            
+            if(action === 'open') {
+                if(contextTarget.type === 'folder') {
+                    loadExplorer(contextTarget.path, contextContainer);
+                } else if(contextTarget.name.toLowerCase().endsWith('.png') || contextTarget.name.toLowerCase().endsWith('.jpg')) {
+                    // Open Image Viewer
+                    openWindow('win-image-viewer');
+                    document.getElementById('image-viewer-title').innerText = `Image Viewer - ${contextTarget.name}`;
+                    document.getElementById('iv-display').src = ''; // clear old
+                    fetch('/api/file/read_image', {
+                        method: 'POST', headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({path: contextTarget.path})
+                    }).then(r => r.json()).then(data => {
+                        if(data.error) alert(data.error);
+                        else document.getElementById('iv-display').src = data.content;
+                    });
+                } else if (contextTarget.name.toLowerCase().endsWith('.zip')) {
+                    alert("Right-click and select 'Extract Here' to unzip this archive.");
+                } else { 
+                    // Fallback to Notepad
+                    openWindow('win-notepad'); 
+                    document.getElementById('np-path').value = contextTarget.path; 
+                    notepadOpen(); 
+                }
+            } else if (action === 'delete') {
+                fetch('/api/file/delete', {
+                    method: 'POST', headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({path: contextTarget.path})
+                }).then(() => loadExplorer(currentPath, contextContainer));
+            } else if (action === 'rename') {
+                const newName = prompt(`Rename '${contextTarget.name}' to:`, contextTarget.name);
+                if(newName && newName !== contextTarget.name) {
+                    fetch('/api/file/rename', {
+                        method: 'POST', headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({old_path: contextTarget.path, new_name: newName})
+                    }).then(r => r.json()).then(data => {
+                        if(data.error) alert(data.error);
+                        else loadExplorer(currentPath, contextContainer);
+                    });
+                }
+            } else if (action === 'extract') {
+                document.body.style.cursor = 'wait';
+                fetch('/api/file/unzip', {
+                    method: 'POST', headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({path: contextTarget.path})
+                }).then(r => r.json()).then(data => {
+                    document.body.style.cursor = 'default';
+                    if(data.error) alert(data.error);
+                    else {
+                        alert("Archive extracted successfully.");
+                        loadExplorer(currentPath, contextContainer);
+                    }
+                });
+            } else if (action === 'properties') {
+                alert(`Path: ${contextTarget.path}\nType: ${contextTarget.type}\nStatus: Synchronized`);
+            }
+        }
+        
+        function emptyRecycleBin() {
+            // For safety, just clear the UI view for now, a deep delete requires a new API endpoint.
+            alert("Recycle Bin Emptied (Mock)");
+            loadExplorer('PocketMatrix/RecycleBin', 'recycle');
+        }
+
+        // --- Deep Agentic Hooks ---
+        function loadScheduler() {
+            fetch('/api/scheduler/tasks').then(r => r.json()).then(data => {
+                const list = document.getElementById('sched-list');
+                list.innerHTML = '';
+                data.forEach(t => {
+                    list.innerHTML += `<tr><td>${t.cron}</td><td>${t.command}</td><td>${t.status}</td></tr>`;
+                });
+            });
+        }
+
+        function addScheduledTask() {
+            const cron = document.getElementById('sched-cron').value;
+            const cmd = document.getElementById('sched-cmd').value;
+            if(!cron || !cmd) { alert("Cron and Command required."); return; }
+            fetch('/api/scheduler/add', {
+                method: 'POST', headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({cron: cron, command: cmd})
+            }).then(() => {
+                document.getElementById('sched-cron').value = '';
+                document.getElementById('sched-cmd').value = '';
+                loadScheduler();
+            });
+        }
+
+        let monitorInterval = null;
+        let cpuData = Array(46).fill(0);
+        let ramData = Array(46).fill(0);
+
+        function drawGraph(canvasId, data, color) {
+            const c = document.getElementById(canvasId);
+            const ctx = c.getContext('2d');
+            ctx.clearRect(0,0, c.width, c.height);
+            ctx.strokeStyle = color;
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            const step = c.width / 45;
+            for(let i=0; i<data.length; i++) {
+                const x = i * step;
+                const y = c.height - (data[i] / 100 * c.height);
+                if(i===0) ctx.moveTo(x, y);
+                else ctx.lineTo(x, y);
+            }
+            ctx.stroke();
+        }
+
+        function startSystemMonitor() {
+            monitorInterval = setInterval(() => {
+                fetch('/api/system/stats').then(r => r.json()).then(stats => {
+                    document.getElementById('cpu-lbl').innerText = `${stats.cpu}%`;
+                    document.getElementById('ram-lbl').innerText = `${stats.ram}%`;
+                    
+                    cpuData.shift(); cpuData.push(stats.cpu);
+                    ramData.shift(); ramData.push(stats.ram);
+                    
+                    drawGraph('cpu-graph', cpuData, '#0f0');
+                    drawGraph('ram-graph', ramData, '#0ff');
+                });
+            }, 1000);
+        }
+
+        function loadHelp() {
+            fetch('/api/help').then(r => r.json()).then(data => {
+                const pre = document.createElement('pre');
+                pre.style.whiteSpace = 'pre-wrap';
+                pre.innerText = data.content || data.error;
+                const cont = document.getElementById('help-content');
+                cont.innerHTML = '';
+                cont.appendChild(pre);
+            });
+        }
+
+        function executeRun() {
+            const cmd = document.getElementById('run-input').value;
+            if(!cmd) return;
+            fetch('/api/run_command', {
+                method: 'POST', headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({command: cmd})
+            }).then(r => r.json()).then(data => {
+                alert(data.output || data.error);
+                closeWindow('win-run');
+            });
+        }
+
+        // Terminal Emulator (MS-DOS)
+        const termIn = document.getElementById('term-in');
+        const termOut = document.getElementById('term-out');
+        termIn.onkeypress = function(e) {
+            if(e.key === 'Enter') {
+                let cmd = termIn.value;
+                termOut.innerHTML += cmd + "<br>";
+                fetch('/api/run_command', {
+                    method: 'POST', headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({command: cmd})
+                }).then(r => r.json()).then(data => {
+                    let output = (data.output || data.error || "").replace(/\n/g, '<br>');
+                    termOut.innerHTML += output + "<br><br>C:\\&gt; ";
+                    termOut.scrollTop = termOut.scrollHeight;
+                });
+                termIn.value = '';
+            }
+        };
+
+        // Clippy Assistant
+        function toggleClippy() {
+            const clippy = document.getElementById('clippy-container');
+            clippy.style.display = (clippy.style.display === 'none' || clippy.style.display === '') ? 'flex' : 'none';
+        }
+
+        function clippyLearn() {
+            const fact = document.getElementById('clippy-input').value;
+            if(!fact) return;
+            
+            // Ensure speech bubble is visible
+            document.getElementById('clippy-speech').style.display = 'block';
+            document.getElementById('clippy-text').innerText = "Thinking...";
+            
+            fetch('/api/clippy/learn', {
+                method: 'POST', headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({fact: fact})
+            }).then(r => r.json()).then(data => {
+                if(data.status === 'SUCCESS') {
+                    document.getElementById('clippy-text').innerText = data.message;
+                    document.getElementById('clippy-input').value = '';
+                } else {
+                    alert("Error teaching Clippy: " + data.error);
+                }
+            });
+        }
+
+        let clippyMessageQueue = [];
+        let clippyQueueIdx = 0;
+
+        function toggleClippyHint() {
+            const speech = document.getElementById('clippy-speech');
+            const text = document.getElementById('clippy-text');
+            
+            // If currently showing a message, cycle to next
+            if (speech.style.display === 'block' && clippyMessageQueue.length > 0) {
+                clippyQueueIdx = (clippyQueueIdx + 1) % clippyMessageQueue.length;
+                text.innerText = clippyMessageQueue[clippyQueueIdx];
+                return;
+            }
+
+            // Otherwise, fetch/generate new content
+            fetch('/api/clippy/recall').then(r => r.json()).then(data => {
+                let message = "I'm Clippy, your Matrix CE assistant!";
+                if (data.fact) {
+                    message = data.fact;
+                }
+                
+                // Length Sensor: Split into chunks of ~150 chars if too long
+                if (message.length > 150) {
+                    clippyMessageQueue = message.match(/.{1,150}(\s|$)/g) || [message];
+                    clippyQueueIdx = 0;
+                    text.innerText = clippyMessageQueue[0];
+                } else {
+                    clippyMessageQueue = [message];
+                    clippyQueueIdx = 0;
+                    text.innerText = message;
+                }
+                speech.style.display = 'block';
+            });
+        }
+
+        function clippyAsk() {
+            const query = document.getElementById('clippy-input').value;
+            if(!query) return;
+            document.getElementById('clippy-text').innerText = "Thinking...";
+            fetch('/api/clippy/chat', {
+                method: 'POST', headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({message: query})
+            }).then(r => r.json()).then(data => {
+                document.getElementById('clippy-text').innerText = data.output || "Error connecting to local agent.";
+                document.getElementById('clippy-input').value = '';
+            }).catch(e => {
+                document.getElementById('clippy-text').innerText = "Local agent offline.";
+            });
+        }
+
+        function clippyFlow() {
+            document.getElementById('clippy-text').innerText = "Analyzing system flow...";
+            fetch('/api/clippy/flow').then(r => r.json()).then(data => {
+                document.getElementById('clippy-text').innerText = data.flow_plan || "Flow analysis failed.";
+            }).catch(e => {
+                document.getElementById('clippy-text').innerText = "Orchestrator offline.";
+            });
+        }
+
+        function startSwarm() {
+            const topic = document.getElementById('swarm-topic').value;
+            if(!topic) return;
+            const out = document.getElementById('swarm-out');
+            out.innerHTML = `<div><i>Summoning the swarm for: <b>${topic}</b>...</i></div>`;
+            
+            fetch('/api/swarm/chat', {
+                method: 'POST', headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({topic: topic})
+            }).then(r => r.json()).then(data => {
+                out.innerHTML = '';
+                if(data.error) {
+                    out.innerHTML = `<div style="color:red;">Error: ${data.error}</div>`;
+                    return;
+                }
+                data.conversation.forEach((line, index) => {
+                    setTimeout(() => {
+                        let color = "#000";
+                        if(line.startsWith("[Director]")) color = "#000080";
+                        if(line.startsWith("[Coder")) color = "#008000";
+                        if(line.startsWith("[Critic")) color = "#800000";
+                        
+                        out.innerHTML += `<div style="color:${color}; margin-bottom:5px;">${line}</div>`;
+                        out.scrollTop = out.scrollHeight;
+                    }, index * 1000); // Simulate typing delay
+                });
+            });
+        }
+
+        // --- Viper Notes ---
+        let currentViperNotes = null;
+        
+        function loadViperNotes() {
+            document.getElementById('viper-status').innerText = "Loading...";
+            fetch('/api/notes').then(r => r.json()).then(data => {
+                currentViperNotes = data;
+                document.getElementById('viper-status').innerText = `Harvested: ${data.total_harvested_count || 0}`;
+                renderViperTabs();
+                renderViperTab('general');
+            });
+        }
+        
+        function harvestViperNotes() {
+            document.getElementById('viper-status').innerText = "Harvesting system...";
+            fetch('/api/clippy/orchestrate', {method: 'POST'}).then(() => {
+                loadViperNotes();
+            });
+        }
+        
+        function renderViperTabs() {
+            const tabsDiv = document.getElementById('viper-tabs');
+            tabsDiv.innerHTML = '';
+            
+            // General Tab
+            let btnGen = document.createElement('button');
+            btnGen.innerText = "General";
+            btnGen.onclick = () => renderViperTab('general');
+            tabsDiv.appendChild(btnGen);
+            
+            // Numbered Tab
+            let btnNum = document.createElement('button');
+            btnNum.innerText = "Numbered";
+            btnNum.onclick = () => renderViperTab('numbered');
+            tabsDiv.appendChild(btnNum);
+            
+            // Frequent Tabs
+            if (currentViperNotes && currentViperNotes.frequent_tabs) {
+                for (let tabName in currentViperNotes.frequent_tabs) {
+                    let btn = document.createElement('button');
+                    btn.innerText = tabName;
+                    btn.onclick = () => renderViperTab('frequent', tabName);
+                    tabsDiv.appendChild(btn);
+                }
+            }
+        }
+        
+        function renderViperTab(type, tabName=null) {
+            const contentDiv = document.getElementById('viper-content');
+            if (!currentViperNotes) return;
+            
+            let html = "";
+            if (type === 'general') {
+                html = currentViperNotes.general.join('\\n\\n');
+            } else if (type === 'numbered') {
+                html = currentViperNotes.numbered_groups.join('\\n\\n');
+            } else if (type === 'frequent' && tabName) {
+                html = currentViperNotes.frequent_tabs[tabName].join('\\n\\n');
+            }
+            contentDiv.innerText = html || "No notes in this category.";
+        }
+        
+        function saveViperNote() {
+            const nameInput = document.getElementById('viper-new-name').value || `note_${Date.now()}.md`;
+            const content = document.getElementById('viper-new-content').value;
+            if (!content) return;
+            
+            fetch('/api/notes', {
+                method: 'POST', headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({name: nameInput, content: content})
+            }).then(r => r.json()).then(() => {
+                document.getElementById('viper-new-content').value = '';
+                loadViperNotes();
+            });
+        }
+
+        // --- Apps ---
+        // Notepad
+        function notepadOpen() {
+            const path = document.getElementById('np-path').value;
+            if(!path) { alert('Specify a path.'); return; }
+            fetch('/api/file/read', {
+                method: 'POST', headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({path: path})
+            }).then(r => r.json()).then(data => {
+                if(data.error) alert('Error: ' + data.error);
+                else document.getElementById('np-editor').value = data.content;
+            });
+        }
+
+        function notepadSave() {
+            const path = document.getElementById('np-path').value;
+            if(!path) { alert('Specify a path.'); return; }
+            fetch('/api/file/write', {
+                method: 'POST', headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({path: path, content: document.getElementById('np-editor').value})
+            }).then(r => r.json()).then(data => {
+                if(data.status === 'SUCCESS') alert('Saved successfully.');
+                else alert('Error: ' + data.error);
+            });
+        }
+
+        // Calculator
+        let calcVal = '';
+        function calcPress(k) {
+            const d = document.getElementById('calc-display');
+            if(k === 'C') { calcVal = ''; d.innerText = '0'; return; }
+            if(k === '=') {
+                try { 
+                    calcVal = eval(calcVal).toString(); 
+                    if(calcVal === 'Infinity' || calcVal === 'NaN') calcVal = 'Err: Div/0';
+                } catch(e) { calcVal = 'Err: Syntax'; }
+                d.innerText = calcVal;
+                // Reset after error so next press starts fresh
+                if(calcVal.startsWith('Err')) calcVal = '';
+                return;
+            }
+            calcVal += k;
+            d.innerText = calcVal;
+        }
+
+        // Paint
+        let paintCtx, painting = false;
+        function initPaint() {
+            const canvas = document.getElementById('paint-canvas');
+            if(!paintCtx) {
+                paintCtx = canvas.getContext('2d');
+                paintCtx.fillStyle = '#fff';
+                paintCtx.fillRect(0,0,canvas.width, canvas.height);
+                
+                canvas.onmousedown = e => { painting = true; paintCtx.beginPath(); paintCtx.moveTo(e.offsetX, e.offsetY); };
+                canvas.onmouseup = () => painting = false;
+                canvas.onmousemove = e => {
+                    if(!painting) return;
+                    paintCtx.strokeStyle = document.getElementById('paint-color').value;
+                    paintCtx.lineWidth = 2;
+                    paintCtx.lineTo(e.offsetX, e.offsetY);
+                    paintCtx.stroke();
+                };
+            }
+        }
+        function paintClear() {
+            if(paintCtx) {
+                paintCtx.fillStyle = '#fff';
+                paintCtx.fillRect(0,0,496, 340);
+            }
+        }
+        function paintSave() {
+            const dataUrl = document.getElementById('paint-canvas').toDataURL();
+            const timestamp = new Date().getTime();
+            const filename = `PocketMatrix/documents/drawing_${timestamp}.png`;
+            fetch('/api/file/write_image', {
+                method: 'POST', headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({path: filename, content: dataUrl})
+            }).then(r => r.json()).then(data => {
+                if(data.status === 'SUCCESS') alert(`Saved drawing to ${filename}`);
+                else alert('Error: ' + data.error);
+            });
+        }
+
+        // Settings Theme & Background
+        function changeTheme(color) {
+            document.body.style.background = color;
+            localStorage.setItem('matrix_theme', color);
+            localStorage.removeItem('matrix_bg_img');
+        }
+
+        function changeBgImage() {
+            const url = document.getElementById('bg-url').value;
+            if(url) {
+                document.body.style.background = `url(${url}) center/cover no-repeat`;
+                localStorage.setItem('matrix_bg_img', url);
+                localStorage.removeItem('matrix_theme');
+            }
+        }
+
+        // Initialize Theme from Storage
+        const savedTheme = localStorage.getItem('matrix_theme');
+        const savedBg = localStorage.getItem('matrix_bg_img');
+        if (savedBg) {
+            document.body.style.background = `url(${savedBg}) center/cover no-repeat`;
+        } else if (savedTheme) {
+            changeTheme(savedTheme);
+        }
+
+        // Volume Mock
+        function toggleVolume() {
+            const p = document.getElementById('vol-popup');
+            p.style.display = (p.style.display === 'none' || p.style.display === '') ? 'block' : 'none';
+        }
+        function updateVolume(val) {
+            console.log(`Volume set to ${val}%`);
+        }
+
+        // AI Chat
+        const cmdIn = document.getElementById('cmd-in');
+        const cmdOut = document.getElementById('cmd-out');
+        cmdIn.onkeypress = function(e) {
+            if(e.key === 'Enter') {
+                let msg = cmdIn.value;
+                cmdOut.innerHTML += msg + "<br>";
+                fetch('/api/chat', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({message: msg})
+                }).then(r => r.json()).then(data => {
+                    cmdOut.innerHTML += data.output.replace(/\n/g, '<br>') + "<br>> ";
+                    cmdOut.scrollTop = cmdOut.scrollHeight;
+                });
+                cmdIn.value = '';
+            }
+        };
+
+        // --- Matrix Config & Axiomatic Grid ---
+        function loadMatrixConfig() {
+            fetch('/api/config/matrix').then(r => r.json()).then(data => {
+                document.getElementById('cfg-email').value = data.email || '';
+                document.getElementById('cfg-email-pass').value = data.email_pass || '';
+                document.getElementById('cfg-imap').value = data.imap_host || 'imap.gmail.com';
+                document.getElementById('cfg-github-token').value = data.github_token || '';
+                document.getElementById('cfg-node-id').value = data.node_id || 'Generating...';
+                document.getElementById('cfg-master-key').value = data.master_key || '';
+            });
+        }
+
+        function saveEmailConfig() {
+            const data = {
+                email: document.getElementById('cfg-email').value,
+                email_pass: document.getElementById('cfg-email-pass').value,
+                imap_host: document.getElementById('cfg-imap').value
+            };
+            fetch('/api/config/email', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(data) })
+                .then(r => r.json()).then(res => alert(res.status === 'SUCCESS' ? 'Email configuration saved.' : res.error));
+        }
+
+        function saveGithubConfig() {
+            const token = document.getElementById('cfg-github-token').value;
+            fetch('/api/config/oauth', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({github_token: token}) })
+                .then(r => r.json()).then(res => alert(res.status === 'SUCCESS' ? 'GitHub OAuth saved.' : res.error));
+        }
+
+        function generateNodeId() {
+            fetch('/api/config/node/generate', { method: 'POST' }).then(r => r.json()).then(res => {
+                document.getElementById('cfg-node-id').value = res.node_id;
+            });
+        }
+
+        function saveNodeConfig() {
+            const master_key = document.getElementById('cfg-master-key').value;
+            fetch('/api/config/node', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({master_key: master_key}) })
+                .then(r => r.json()).then(res => alert(res.status === 'SUCCESS' ? 'Node configuration saved.' : res.error));
+        }
+
+        function loadAxiomGrid() {
+            const container = document.getElementById('axiom-grid-container');
+            container.innerHTML = 'Scanning Grid...';
+            fetch('/api/system/axioms').then(r => r.json()).then(data => {
+                container.innerHTML = '';
+                data.axioms.forEach((axiom, i) => {
+                    const div = document.createElement('div');
+                    div.style.cssText = "width:100%; height:40px; border:1px solid #0f0; display:flex; align-items:center; justify-content:center; cursor:pointer; font-size:12px;";
+                    div.innerText = axiom.status === 'PASS' ? '✅' : '❌';
+                    if (axiom.status === 'PENDING') div.innerText = '⏳';
+                    div.onclick = () => {
+                        document.getElementById('axiom-details').innerText = `AXIOM ${i+1}: ${axiom.name}\nSTATUS: ${axiom.status}\nVALUE: ${axiom.value || 'N/A'}`;
+                    };
+                    container.appendChild(div);
+                });
+            });
+        }
+
+        function loadLocalModels() {
+            const tbody = document.getElementById('model-list-body');
+            tbody.innerHTML = '<tr><td colspan="3">Scanning models...</td></tr>';
+            fetch('/api/models').then(r => r.json()).then(models => {
+                tbody.innerHTML = '';
+                models.forEach(m => {
+                    const row = `<tr><td>${m.name}</td><td>${m.size_mb} MB</td><td>READY</td></tr>`;
+                    tbody.innerHTML += row;
+                });
+                if (models.length === 0) tbody.innerHTML = '<tr><td colspan="3">No models found in KAI_9000/models/</td></tr>';
+            });
+        }
+
+        function triggerModelFetch() {
+            const status = document.getElementById('model-fetch-status');
+            status.innerText = "[*] Initiating model fetch background script...";
+            fetch('/api/config/models/fetch', {method: 'POST'}).then(r => r.json()).then(res => {
+                status.innerText = res.message;
+            });
+        }
+
+        function loadSwarmRegistry() {
+            const tbody = document.getElementById('registry-list-body');
+            tbody.innerHTML = '<tr><td colspan="4">Polling registry...</td></tr>';
+            fetch('/api/swarm/registry').then(r => r.json()).then(data => {
+                tbody.innerHTML = '';
+                data.agents.forEach(a => {
+                    const row = `<tr><td>${a.id}</td><td>${a.role || a.type}</td><td>${a.ip || 'Local'}</td><td>${a.status}</td></tr>`;
+                    tbody.innerHTML += row;
+                });
+            });
+        }
+
+        function loadOpsManual() {
+            const content = document.getElementById('ops-manual-content');
+            content.innerHTML = 'Parsing BIBLE.md...';
+            fetch('/api/help/ops').then(r => r.json()).then(data => {
+                // Simplified markdown rendering
+                content.innerHTML = data.content.replace(/\n/g, '<br>').replace(/## (.*)/g, '<b>$1</b>').replace(/# (.*)/g, '<h3>$1</h3>');
+            });
+        }
+
+        function loadSwarmStatus() {
+            const container = document.getElementById('swarm-list-container');
+            container.innerHTML = '<div style="padding:10px; font-size:12px; text-align:center;">Signing in to Swarm Messenger...</div>';
+            fetch('/api/swarm/status').then(r => r.json()).then(data => {
+                container.innerHTML = '';
+                data.swarm.forEach(a => {
+                    const agentDiv = document.createElement('div');
+                    agentDiv.style.cssText = "padding:8px; border-bottom:1px solid #eee; display:flex; align-items:center; gap:10px; transition: background 0.2s; cursor:pointer;";
+                    agentDiv.onmouseover = () => agentDiv.style.background = "#f5f5f5";
+                    agentDiv.onmouseout = () => agentDiv.style.background = "transparent";
+                    
+                    const avatar = `<div style="width:36px; height:36px; background:#e0e0e0; border:1px solid #ccc; border-radius:3px; display:flex; justify-content:center; align-items:center; font-size:20px;">${a.mood}</div>`;
+                    
+                    const info = `
+                        <div style="flex-grow:1;">
+                            <div style="font-weight:bold; font-size:13px; color:#333;">${a.id} <span style="font-weight:normal; font-size:10px; color:#999;">(${a.role})</span></div>
+                            <div style="font-size:11px; color:#00a000;">${a.status}: ${a.activity}</div>
+                            <div style="margin-top:4px; display:flex; gap:10px; font-size:10px; color:#888;">
+                                <span>❤️ Health: ${a.health}%</span>
+                                <span>😊 Happy: ${a.happiness}%</span>
+                            </div>
+                        </div>
+                    `;
+                    
+                    agentDiv.innerHTML = avatar + info;
+                    container.appendChild(agentDiv);
+                });
+            });
+        }
+
+        function loadResearchLab() {
+            const log = document.getElementById('research-lab-log');
+            log.innerHTML = '[*] Research Lab active. Polling brute-force state...';
+        }
+
+        function startBruteForce() {
+            fetch('/api/research/brute-force', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({action: 'start'})})
+                .then(r => r.json()).then(res => {
+                    document.getElementById('research-lab-log').innerHTML += `<br>[+] ${res.message}`;
+                });
+        }
+
+        function stopBruteForce() {
+            fetch('/api/research/brute-force', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({action: 'stop'})})
+                .then(r => r.json()).then(res => {
+                    document.getElementById('research-lab-log').innerHTML += `<br>[!] ${res.message}`;
+                });
+        }
+
+        function loadRestorePoints() {
+            const tbody = document.getElementById('restore-list-body');
+            tbody.innerHTML = '<tr><td colspan="4">Fetching snapshots...</td></tr>';
+            fetch('/api/system/restore/list').then(r => r.json()).then(data => {
+                tbody.innerHTML = '';
+                if (data.points) {
+                    data.points.forEach(p => {
+                        const row = `<tr><td>${p.date}</td><td>${p.type}</td><td>${p.hash.substring(0,8)}...</td><td><button onclick="applyRestore('${p.hash}')">Restore</button></td></tr>`;
+                        tbody.innerHTML += row;
+                    });
+                } else {
+                    tbody.innerHTML = '<tr><td colspan="4">No restore points found.</td></tr>';
+                }
+            });
+        }
+
+        function createRestorePoint() {
+            const status = document.getElementById('restore-status');
+            status.innerText = "[*] Creating system snapshot... please wait.";
+            fetch('/api/system/restore/snapshot', {method: 'POST'}).then(r => r.json()).then(res => {
+                status.innerText = res.message;
+                loadRestorePoints();
+            });
+        }
+
+        function syncOneDrive() {
+            const status = document.getElementById('restore-status');
+            status.innerText = "[*] Initiating OneDrive sync via rclone...";
+            fetch('/api/system/restore/sync', {method: 'POST'}).then(r => r.json()).then(res => {
+                status.innerText = res.message;
+            });
+        }
+
+        function loadMindPalace() {
+            const graphDiv = document.getElementById('graph-node-list');
+            graphDiv.innerHTML = 'Traversing Topology...';
+            fetch('/api/nx/nodes').then(r => r.json()).then(data => {
+                graphDiv.innerHTML = '';
+                data.nodes.forEach(n => {
+                    const nodeEl = document.createElement('div');
+                    nodeEl.style.cssText = "padding:10px; border:1px solid #ccc; margin-bottom:5px; cursor:pointer; background:#f9f9f9;";
+                    nodeEl.innerHTML = `<strong>[${n.type}]</strong> ${n.name}`;
+                    nodeEl.onclick = () => {
+                        document.getElementById('mind-palace-details').innerHTML = `
+                            <strong>ID:</strong> ${n.id}<br>
+                            <strong>Type:</strong> ${n.type}<br>
+                            <strong>Name:</strong> ${n.name}<br>
+                            <strong>Data:</strong> <pre>${JSON.stringify(n.data, null, 2)}</pre>
+                        `;
+                    };
+                    graphDiv.appendChild(nodeEl);
+                });
+            });
+        }
+
+        function initOfficeGrid() {
+            const table = document.getElementById('matrix-grid-table');
+            table.innerHTML = '';
+            // Headers
+            let headRow = '<tr><th style="width:30px; background:#f0f0f0; border:1px solid #ccc;"></th>';
+            for(let i=0; i<10; i++) headRow += `<th style="background:#f0f0f0; border:1px solid #ccc;">${String.fromCharCode(65+i)}</th>`;
+            table.innerHTML += headRow + '</tr>';
+            // Rows
+            for(let r=1; r<=10; r++) {
+                let row = `<tr><td style="background:#f0f0f0; border:1px solid #ccc; text-align:center; font-weight:bold;">${r}</td>`;
+                for(let c=0; c<10; c++) row += `<td contenteditable="true" style="border:1px solid #ccc; min-width:60px; height:20px; padding:2px;"></td>`;
+                table.innerHTML += row + '</tr>';
+            }
+        }
+
+        function initOfficeScript() {
+            // Load current README as default content
+            fetch('/api/file/read', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({path:'README.md'})})
+                .then(r => r.json()).then(res => {
+                    document.getElementById('script-editor').value = res.content || '';
+                });
+        }
+
+        function loadReverseHub() {
+            document.getElementById('reverse-output-diagram').innerText = 'System Ready for Vision Data...';
+        }
+
+        function captureVision() {
+            const imgPath = prompt("Enter path to image/sketch:");
+            if(!imgPath) return;
+            document.getElementById('reverse-output-diagram').innerText = '[*] Extracting logic from image...';
+            fetch('/api/reverse/vision', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({image_path: imgPath})})
+                .then(r => r.json()).then(res => {
+                    document.getElementById('reverse-output-diagram').innerText = res.diagram;
+                });
+        }
+
+        function triggerDecompile() {
+            const binPath = prompt("Enter path to binary file:");
+            if(!binPath) return;
+            document.getElementById('reverse-output-source').innerText = '[*] Decompiling and searching GitHub contexts...';
+            fetch('/api/reverse/decompile', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({binary_path: binPath})})
+                .then(r => r.json()).then(res => {
+                    document.getElementById('reverse-output-source').innerText = res.source;
+                });
+        }
+
+        function loadGeneticAudio() {
+            document.getElementById('audio-log').innerText = '[*] Genetic Audio Engine Ready.';
+        }
+
+        function evolveAudio() {
+            fetch('/api/audio/evolve', {method: 'POST'}).then(r => r.json()).then(res => {
+                document.getElementById('audio-log').innerHTML += `<br>${res.message}`;
+            });
+        }
+
+        function loadQwenMax() {
+            document.getElementById('pedagogy-log').innerText = '[*] Qwen Max Controller Active.';
+        }
+
+        function runDirectedBatch() {
+            const tasks = [
+                {desc: "Refine manifest", code: "cat AndroidManifest.xml"},
+                {desc: "Check thermal", code: "cat /proc/loadavg"}
+            ];
+            fetch('/api/qwen/throughput', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({tasks: tasks})})
+                .then(r => r.json()).then(res => {
+                    document.getElementById('qwen-task-queue').innerHTML += `<br>[+] Batch initiated.`;
+                });
+        }
+
+        // Clock
+        setInterval(() => {
+            document.getElementById('clock').innerText = new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+        }, 1000);
+
+        // Desktop Click Hide Start
+        document.getElementById('desktop').onmousedown = () => document.getElementById('start-menu').style.display = 'none';
+
+        // Windows start closed by default to enforce classic desktop feel.
+    </script>
+</body>
+</html>
