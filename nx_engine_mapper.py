@@ -12,24 +12,36 @@ from datetime import datetime
 DB_PATH = os.path.expanduser("~/.matrix_ide/database/knowledge_hub.db")
 SERVER_URL = "http://127.0.0.1:8081/api/knowledge/search"
 
+from genetic_techno_engine import EvolutionLoop
+
 def map_room_to_context(room_id):
     """
     Triggered by NXEngine when entering a room.
-    Fetches room-specific knowledge from the project DB.
+    Fetches room-specific knowledge and evolves a room-specific techno beat.
     """
     print(f"[*] NXEngine: Entered Room {room_id}")
     
-    # Query logic based on room ID
+    # 1. Knowledge Retrieval
     query = f"project overview room {room_id}"
-    
+    context = "Knowledge gap detected."
     try:
         response = requests.post(SERVER_URL, json={"query": query})
         if response.status_code == 200:
             data = response.json()
-            # Return top match as an interactive text asset
-            return data.get('results', ["Knowledge gap detected in this sector."])[0]
+            context = data.get('results', [context])[0]
     except Exception as e:
-        return f"Database Link Severed: {e}"
+        context = f"Database Link Severed: {e}"
+
+    # 2. Sonic Evolution (Room Ambient Beat)
+    print(f"[*] Evolving room-specific beat for {room_id}...")
+    loop = EvolutionLoop(population_size=5)
+    best_pattern = loop.run_generation()
+    midi_path = best_pattern.export_midi(filename=f"room_{room_id}.mid")
+    
+    return {
+        "text": context,
+        "audio_trigger": midi_path
+    }
 
 def update_game_state(state_json):
     """
