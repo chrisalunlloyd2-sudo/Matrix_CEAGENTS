@@ -27,7 +27,7 @@ class BM25Orchestrator:
         if not os.path.exists(db_path):
             print(f"Memory database not found: {db_path}")
             return
-            
+
         try:
             conn = sqlite3.connect(db_path)
             c = conn.cursor()
@@ -58,13 +58,13 @@ class BM25Orchestrator:
         if nd == 0:
             return
         self.avgdl = sum(self.doc_len) / nd
-        
+
         # Calculate document frequency for each term
         df = {}
         for frequencies in self.doc_freqs:
             for term in frequencies:
                 df[term] = df.get(term, 0) + 1
-                
+
         # Calculate IDF
         for term, freq in df.items():
             # Standard BM25 IDF formula
@@ -73,7 +73,7 @@ class BM25Orchestrator:
     def get_scores(self, query):
         scores = [0] * len(self.corpus)
         query_tokens = query.lower().split()
-        
+
         for idx, frequencies in enumerate(self.doc_freqs):
             score = 0
             doc_len = self.doc_len[idx]
@@ -101,7 +101,7 @@ class BM25Orchestrator:
         """
         print(f"[*] Orchestrating request: '{query}'")
         best_matches = self.retrieve_best_context(query)
-        
+
         context = ""
         if best_matches:
             print(f"[*] Found {len(best_matches)} historically successful related tasks.")
@@ -109,7 +109,7 @@ class BM25Orchestrator:
                 context += f"- Past Success: {m}\n"
         else:
             print("[*] No historical context found. Generating zero-shot prompt.")
-            
+
         print("[*] Routing to local LLM with Context-Augmented Prompt...")
         # Placeholder for Triton/Danube CLI invocation
         return {
@@ -122,6 +122,6 @@ if __name__ == "__main__":
     db_path = os.path.expanduser("~/.matrix_ide/database/todo.db")
     orchestrator = BM25Orchestrator()
     orchestrator.load_memory(db_path)
-    
+
     # Test query
     orchestrator.orchestrate("scan the logs for memory errors")
