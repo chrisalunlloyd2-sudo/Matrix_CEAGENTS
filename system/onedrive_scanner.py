@@ -10,11 +10,11 @@ def scan_and_ingest(scan_path):
 
     conn = sqlite3.connect(HUB_DB)
     c = conn.cursor()
-    
+
     count = 0
     # Common text extensions for SOPs/logs
     extensions = ('*.md', '*.txt', '*.log', '*.sop')
-    
+
     for ext in extensions:
         search_pattern = os.path.join(scan_path, "**", ext)
         for filepath in glob.glob(search_pattern, recursive=True):
@@ -23,12 +23,12 @@ def scan_and_ingest(scan_path):
                     content = f.read()
                     if content.strip():
                         category = f"OneDrive_SOP:{os.path.basename(filepath)}"
-                        c.execute("INSERT OR REPLACE INTO knowledge (category, content, priority) VALUES (?, ?, ?)", 
+                        c.execute("INSERT OR REPLACE INTO knowledge (category, content, priority) VALUES (?, ?, ?)",
                                   (category, content, 1.0))
                         count += 1
             except Exception as e:
                 print(f"[-] Error reading {filepath}: {e}")
-                
+
     conn.commit()
     conn.close()
     print(f"[+] Harvested {count} SOPs/Notes from {scan_path} into Knowledge Hub.")

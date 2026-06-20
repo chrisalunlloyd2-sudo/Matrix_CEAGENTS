@@ -21,7 +21,7 @@ def search_knowledge_bm25(query):
     docs = [row[0] for row in c.fetchall()]
     tokenized_docs = [doc.lower().split() for doc in docs]
     bm25 = BM25Okapi(tokenized_docs)
-    
+
     tokenized_query = query.lower().split()
     top_n = bm25.get_top_n(tokenized_query, docs, n=3)
     conn.close()

@@ -10,11 +10,11 @@ class HeadlessBridge:
     def translate_and_execute(self, semantic_intent):
         """Bypasses GUI, translates intent to Win32 API calls via Danube, and executes via mock serial/SSH."""
         prompt = f"Translate the following intent into a low-level Win32 C/C++ API call snippet for Windows CE. Output ONLY code. Intent: {semantic_intent}"
-        
+
         # Call Danube via agy-go bridge logic
         result = subprocess.run(["agy", "-p", f"Task: {prompt}"], capture_output=True, text=True)
         win32_code = result.stdout.strip()
-        
+
         print(f"🧠 Semantic Intent: {semantic_intent}")
         print(f"⚙️ Win32 Translation: {win32_code}")
         print("📡 Sending to CE Image via Serial/SSH...")

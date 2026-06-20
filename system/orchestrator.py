@@ -27,19 +27,19 @@ def get_blueprints():
 def run_orchestration():
     todos = get_active_todos()
     blueprints = get_blueprints()
-    
+
     # Synthesize context - truncate to prevent LLM overload
     context_query = " ".join(todos)
     relevant_knowledge = search_knowledge_bm25(context_query)
-    
+
     # Truncate inputs for prompt
     todos_str = json.dumps(todos)[:500]
     blueprints_str = json.dumps(blueprints)[:500]
     knowledge_str = json.dumps(relevant_knowledge)[:500]
-    
+
     # Prompt LLM for cross-correlation
     prompt = f"Active Tasks: {todos_str}. Blueprints: {blueprints_str}. Knowledge: {knowledge_str}. Based on this, propose 3 actionable agentic duties to improve or advance these projects."
-    
+
     try:
         print(f"DEBUG: Prompt length: {len(prompt)}")
         response = requests.post("http://127.0.0.1:8080/completion", json={
