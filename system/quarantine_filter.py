@@ -6,6 +6,7 @@ QUARANTINE_DIR = os.path.expanduser("~/.matrix_ide/quarantine")
 EVO_DIR = os.path.expanduser("~/.matrix_ide/evolution")
 
 def isolate_anomalies():
+    """Isolate anomalies (function)."""
     print("🛡️ [QUARANTINE FILTER] Initiating aggressive sweep for erratic data and anomalous loops...")
     os.makedirs(QUARANTINE_DIR, exist_ok=True)
 
