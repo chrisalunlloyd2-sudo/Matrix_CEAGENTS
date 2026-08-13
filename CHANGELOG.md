@@ -3,6 +3,7 @@
 All notable changes to this project.
 
 ## 2026-08
+- **[Changed]** [Moe autonomous] Matrix_CEAGENTS 2026-08-13 14:29 ($hash)
 - **[Changed]** [Moe autonomous] Matrix_CEAGENTS 2026-08-13 13:48 ($hash)
 - **[Changed]** [Moe autonomous] Matrix_CEAGENTS 2026-08-13 12:57 ($hash)
 - **[Changed]** [Moe autonomous] Matrix_CEAGENTS 2026-08-13 12:24 ($hash)
@@ -44,7 +45,6 @@ All notable changes to this project.
 - **[Docs]** docs: document 2 public API in system\knowledge_hub.py (autonomous, logic-verified) ($hash)
 - **[Docs]** docs: document 1 public API in system\quarantine_filter.py (autonomous, logic-verified) ($hash)
 - **[Changed]** [Moe autonomous] Matrix_CEAGENTS 2026-08-12 04:15 ($hash)
-- **[Docs]** docs: auto-update [skip-docs] ($hash)
 - **[Docs]** docs: auto-update [skip-docs] ($hash)
 - **[Docs]** docs: auto-update [skip-docs] ($hash)
 - **[Docs]** docs: auto-update [skip-docs] ($hash)
