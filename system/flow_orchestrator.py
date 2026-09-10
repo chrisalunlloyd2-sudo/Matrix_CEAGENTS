@@ -41,7 +41,7 @@ def get_system_flow():
             "top_k": 40,
             "top_p": 0.95
         }, timeout=45)
-        
+
         if response.status_code == 200:
             flow_plan = response.json().get('content', '').strip()
             return flow_plan if flow_plan else "No flow generated."

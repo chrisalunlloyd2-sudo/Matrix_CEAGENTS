@@ -16,7 +16,7 @@ def log(msg):
 
 def run_sync_cycle():
     log("Initiating hourly sync cycle...")
-    
+
     # 1. Harvest local logs
     try:
         log("Running log harvester...")

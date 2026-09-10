@@ -15,7 +15,7 @@ def load_credentials():
         with open(CREDS_PATH, 'r') as f:
             data = json.load(f)
             return data.get("email"), data.get("app_password")
-    except:
+    except Exception:
         return None, None
 
 def send_gmail(to_addr, subject, body, retries=3):
@@ -23,7 +23,7 @@ def send_gmail(to_addr, subject, body, retries=3):
     email, password = load_credentials()
     if not email or not password:
         return False, "Credentials not configured in ~/.matrix_ide/config/google_creds.json"
-    
+
     for attempt in range(retries):
         try:
             msg = MIMEText(body)
@@ -35,7 +35,7 @@ def send_gmail(to_addr, subject, body, retries=3):
             with smtplib.SMTP_SSL('smtp.gmail.com', 465) as server:
                 server.login(email, password)
                 server.sendmail(email, [to_addr], msg.as_string())
-                
+
             return True, "Email sent successfully."
         except Exception as e:
             if attempt == retries - 1:
@@ -50,7 +50,7 @@ def sync_keep(tasks, retries=3):
     email, password = load_credentials()
     if not email or not password:
         return False, "Credentials not configured in ~/.matrix_ide/config/google_creds.json"
-    
+
     for attempt in range(retries):
         try:
             keep = gkeepapi.Keep()
@@ -72,7 +72,7 @@ def sync_keep(tasks, retries=3):
             for task in tasks:
                 task_text = task['task'].strip()
                 task_status = task['status'] == 'done'
-                
+
                 if task_text in existing_items:
                     # Update status
                     existing_items[task_text].checked = task_status
@@ -83,7 +83,7 @@ def sync_keep(tasks, retries=3):
             # Sync back to Google servers
             keep.sync()
             return True, "Successfully hypersynced with Google Keep."
-        
+
         except Exception as e:
             if attempt == retries - 1:
                 return False, f"Keep API Error after {retries} retries: {str(e)}"

@@ -6,11 +6,12 @@ QUARANTINE_DIR = os.path.expanduser("~/.matrix_ide/quarantine")
 EVO_DIR = os.path.expanduser("~/.matrix_ide/evolution")
 
 def isolate_anomalies():
+    """Isolate anomalies (function)."""
     print("🛡️ [QUARANTINE FILTER] Initiating aggressive sweep for erratic data and anomalous loops...")
     os.makedirs(QUARANTINE_DIR, exist_ok=True)
-    
+
     quarantine_count = 0
-    
+
     # 1. Sweep Evolutionary Branches for dead loops
     if os.path.exists(EVO_DIR):
         for item in os.listdir(EVO_DIR):
@@ -20,7 +21,7 @@ def isolate_anomalies():
                 shutil.move(src, dst)
                 print(f"  ☣️ Isolate: Evolutionary anomaly '{item}' moved to quarantine.")
                 quarantine_count += 1
-                
+
     # 2. Sweep logs for "weird things" (e.g. repetitive crash blocks)
     # Placeholder logic for parsing logs and isolating corrupted segments
     log_path = os.path.expanduser("~/.matrix_ide/logs/agy_master.log")

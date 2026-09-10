@@ -17,14 +17,14 @@ class DynamicFaultInjector:
         if not available_faults:
             self.history.clear() # Reset memory if all faults experienced
             available_faults = self.fault_types
-            
+
         fault, desc = random.choice(available_faults)
         self.history.add(fault)
-        
+
         print(f"⚡ [FAULT INJECTOR] Triggering sandbox fault: {fault}")
         time.sleep(1)
         print(f"💥 SYSTEM FAULT: {desc}")
-        
+
         # Pipe to Danube for Pedagogy
         self.tutor_student(desc)
 

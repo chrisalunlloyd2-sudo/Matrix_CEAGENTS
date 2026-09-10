@@ -9,7 +9,7 @@ TODO_DB = os.path.expanduser("~/.matrix_ide/database/todo.db")
 def extract_todos():
     print("🌾 [CHAT HARVESTER] Scanning global chats for actionable tasks...")
     todos = set()
-    
+
     # 1. Extract from historical global chat logs
     if os.path.exists(CHAT_FILE):
         with open(CHAT_FILE, 'r') as f:
@@ -39,7 +39,7 @@ def extract_todos():
     conn = sqlite3.connect(TODO_DB)
     c = conn.cursor()
     c.execute("CREATE TABLE IF NOT EXISTS tasks (id INTEGER PRIMARY KEY AUTOINCREMENT, task TEXT, status TEXT, reminder_time TEXT, delivery_method TEXT);")
-    
+
     # Check existing to prevent spamming
     c.execute("SELECT task FROM tasks")
     existing = set(row[0] for row in c.fetchall())
@@ -50,7 +50,7 @@ def extract_todos():
             # Marked for execution by the H2O Agent
             c.execute("INSERT INTO tasks (task, status, delivery_method) VALUES (?, 'pending', 'H2O-Agent')", (t,))
             added += 1
-            
+
     conn.commit()
     conn.close()
     print(f"✅ Successfully harvested and injected {added} new ToDos into the PocketMatrix GUI.")

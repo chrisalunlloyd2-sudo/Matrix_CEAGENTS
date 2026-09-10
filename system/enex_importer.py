@@ -14,20 +14,20 @@ def import_enex(enex_file_path):
     # Parse XML
     tree = ET.parse(enex_file_path)
     root = tree.getroot()
-    
+
     conn = sqlite3.connect(HUB_DB)
     c = conn.cursor()
-    
+
     count = 0
     for note in root.findall('note'):
         title = note.find('title').text if note.find('title') is not None else "Untitled"
         content = note.find('content').text if note.find('content') is not None else ""
-        
+
         # Ingest into knowledge hub
-        c.execute("INSERT OR REPLACE INTO knowledge (category, content, priority) VALUES (?, ?, ?)", 
+        c.execute("INSERT OR REPLACE INTO knowledge (category, content, priority) VALUES (?, ?, ?)",
                   (f"Evernote_Import:{os.path.basename(enex_file_path)}", content, 1.0))
         count += 1
-        
+
     conn.commit()
     conn.close()
     print(f"[+] Imported {count} notes from {enex_file_path} into Knowledge Hub.")

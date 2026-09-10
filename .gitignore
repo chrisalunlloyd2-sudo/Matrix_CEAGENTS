@@ -1,0 +1,9 @@
+# --- catalogued binaries (see CATALOGUE.md) ---
+# Listed individually, not as *.so / *.jar: the rule is a
+# threshold on the FILE, so small ones of the same type ship.
+/memory/viper_code_vault.db
+
+__pycache__/
+.gradle/
+.idea/
+

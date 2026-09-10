@@ -45,7 +45,7 @@ def _ingest_to_knowledge_hub(title, content):
         conn = sqlite3.connect(HUB_DB)
         c = conn.cursor()
         category = f"Evernote_API:{title}"
-        c.execute("INSERT OR REPLACE INTO knowledge (category, content, priority) VALUES (?, ?, ?)", 
+        c.execute("INSERT OR REPLACE INTO knowledge (category, content, priority) VALUES (?, ?, ?)",
                   (category, content, 1.0))
         conn.commit()
         conn.close()
@@ -136,7 +136,7 @@ def cmd_create_note(args):
 
     created = note_store.createNote(note)
     print(json.dumps({"status":"CREATED","guid":created.guid,"title":created.title}))
-    
+
     # Sync to local Matrix
     _ingest_to_knowledge_hub(created.title, md)
 
@@ -203,10 +203,10 @@ def cmd_import_jsonl(args):
             print(json.dumps({"source_id": (rec.get("source") or {}).get("source_id"),
                               "status":"CREATED",
                               "guid":created.guid}))
-            
+
             # Sync to local Matrix
             _ingest_to_knowledge_hub(rec["title"], md)
-                              
+
         except Exception as e:
             qpath.open("a", encoding="utf-8").write(json.dumps({"record":rec,"error":str(e)}) + "\n")
             print(json.dumps({"source_id": (rec.get("source") or {}).get("source_id"),

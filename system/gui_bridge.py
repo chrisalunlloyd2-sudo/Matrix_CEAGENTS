@@ -50,21 +50,21 @@ def get_matrix_config():
             data['email'] = e.get('email')
             data['email_pass'] = e.get('password')
             data['imap_host'] = e.get('imap_host')
-            
+
     if os.path.exists(OAUTH_CONFIG):
         with open(OAUTH_CONFIG, 'r') as f:
             o = json.load(f)
             data['github_token'] = o.get('github_token')
-            
+
     if os.path.exists(NODE_KEY_FILE):
         with open(NODE_KEY_FILE, 'r') as f:
             data['node_id'] = f.read().strip()
-            
+
     if os.path.exists(REGISTRY_FILE):
         with open(REGISTRY_FILE, 'r') as f:
             r = json.load(f)
             data['master_key'] = r.get('master_key', '')
-            
+
     return jsonify(data)
 
 @app.route('/api/config/email', methods=['POST'])
@@ -177,7 +177,7 @@ def get_swarm_status():
                 if 'MemTotal' in line: mem_total = int(line.split()[1])
                 if 'MemAvailable' in line: mem_avail = int(line.split()[1])
         ram_ratio = mem_avail / mem_total
-    except:
+    except Exception:
         load = 0.5
         ram_ratio = 0.8
 
@@ -185,11 +185,11 @@ def get_swarm_status():
         # Mocking happiness/health for now based on status
         status = a.get('status', 'offline')
         health = 100 if status == 'online' else 0
-        
+
         # Happiness dips with system load
         happiness = int(ram_ratio * 100 - (load * 5))
         if happiness < 0: happiness = 0
-        
+
         agents.append({
             "id": a['id'],
             "role": a.get('role', 'unknown'),
@@ -199,7 +199,7 @@ def get_swarm_status():
             "mood": "😊" if happiness > 70 else "😐" if happiness > 40 else "😫",
             "activity": "Monitoring Hive..." if status == 'online' else "Sleeping..."
         })
-        
+
     return jsonify({"swarm": agents})
 
 @app.route('/api/help/ops')
@@ -395,7 +395,7 @@ def omni_chat():
         out = result.stdout.strip()
         # Clean up the output to remove the initialization string for the GUI
         out = out.replace("=== Triton Headless Orchestrator Initialized ===", "").strip()
-        
+
         if not out:
             out = "[!] Command processed by Triton Substrate."
         return jsonify({"output": out})
@@ -443,22 +443,22 @@ def config_qwen():
         }
         with open(settings_path, 'w') as f:
             json.dump(settings, f, indent=2)
-            
+
         # 2. Update .bashrc for environment and memory
         bashrc_path = os.path.expanduser("~/.bashrc")
         with open(bashrc_path, 'r') as f:
             content = f.read()
-        
+
         updates = []
         if 'export OPENAI_API_KEY="DUMMY_KEY"' not in content:
             updates.append('export OPENAI_API_KEY="DUMMY_KEY"')
         if 'alias qwen=' not in content:
             updates.append('alias qwen=\'NODE_OPTIONS="--max-old-space-size=512" qwen\'')
-        
+
         if updates:
             with open(bashrc_path, 'a') as f:
                 f.write("\n" + "\n".join(updates) + "\n")
-        
+
         return jsonify({"status": "SUCCESS", "message": "Qwen logic manifested in substrate."})
     except Exception as e:
         return jsonify({"status": "ERROR", "error": str(e)}), 500
@@ -563,7 +563,7 @@ def sync_todo_google():
     c.execute("SELECT id, task, status FROM tasks")
     tasks = [{"id": r[0], "task": r[1], "status": r[2]} for r in c.fetchall()]
     conn.close()
-    
+
     success, msg = google_bridge.sync_keep(tasks)
     return jsonify({"status": "SUCCESS" if success else "ERROR", "message": msg})
 
@@ -577,10 +577,10 @@ def get_mail():
     c.execute("SELECT * FROM successful_scripts ORDER BY timestamp DESC LIMIT 5")
     logs = c.fetchall()
     conn.close()
-    
+
     mail_list = [{"from": "MatrixEngine@localhost", "subject": f"Mutation Success: {m[1]}", "body": m[3]} for m in logs]
     mail_list.insert(0, {"from": "System@PocketMatrix", "subject": "Gmail Bridge Ready", "body": "Gmail is running in LIVE mode. Emails composed here will be sent via SMTP using your configured App Password."})
-    
+
     return jsonify(mail_list)
 
 @app.route('/api/mail/send', methods=['POST'])
@@ -588,7 +588,7 @@ def send_mail():
     to = request.json.get('to')
     subject = request.json.get('subject')
     body = request.json.get('body')
-    
+
     success, msg = google_bridge.send_gmail(to, subject, body)
     return jsonify({"status": "SUCCESS" if success else "ERROR", "message": msg})
 
@@ -597,17 +597,17 @@ def web_crawl():
     url = request.json.get('url')
     if not url:
         return jsonify({"error": "No URL provided."}), 400
-        
+
     raw_data = ingestor.fetch_and_parse(url)
     if raw_data.startswith("ERROR"):
         return jsonify({"error": raw_data}), 500
-        
+
     formatted_logic = ingestor.format_for_danube(raw_data, url)
-    
+
     # Process the formatted logic through the Danube model to extract instructions
     result = subprocess.run(["agy", "-p", formatted_logic], capture_output=True, text=True)
     ai_response = result.stdout.strip()
-    
+
     return jsonify({"source": url, "ai_logic": ai_response})
 
 CLIPPY_BRAIN_FILE = os.path.join(HOME_DIR, ".matrix_ide/state/clippy_brain.json")
@@ -618,7 +618,7 @@ def clippy_learn():
     fact = req.get('fact', '').strip()
     if not fact:
         return jsonify({"error": "No fact provided."}), 400
-    
+
     # Store the fact
     memory = []
     if os.path.exists(CLIPPY_BRAIN_FILE):
@@ -630,11 +630,11 @@ def clippy_learn():
     os.makedirs(os.path.dirname(CLIPPY_BRAIN_FILE), exist_ok=True)
     with open(CLIPPY_BRAIN_FILE, 'w') as f:
         json.dump(memory, f)
-        
+
     # Generate conversational response
     # Using simple prompt format for SmolLM
     prompt = f"You are Clippy. You just learned: '{fact}'. Respond as Clippy, happily acknowledging this new information in a helpful way."
-    
+
     try:
         # llama.cpp server expects 'prompt' for /completion
         response = requests.post("http://127.0.0.1:8080/completion", json={
@@ -651,7 +651,7 @@ def clippy_learn():
             return jsonify({"status": "SUCCESS", "message": clippy_response})
     except Exception as e:
         pass
-        
+
     return jsonify({"status": "SUCCESS", "message": "I learned that: " + fact})
 
 import PocketMatrix.system.knowledge_hub as knowledge_hub
@@ -659,14 +659,14 @@ import PocketMatrix.system.knowledge_hub as knowledge_hub
 @app.route('/api/clippy/recall', methods=['GET'])
 def clippy_recall():
     query = request.args.get('query', '')
-    
+
     # Use knowledge_hub BM25 for intelligent retrieval
     relevant_content = knowledge_hub.search_knowledge_bm25(query if query else "latest actions")
     context = " ".join(relevant_content)
-    
+
     # Prompt for local model
     prompt = f"You are Clippy. Using this context: '{context}', answer the user's query: '{query}'. Be helpful and happy."
-    
+
     try:
         response = requests.post("http://127.0.0.1:8080/completion", json={
             "prompt": prompt,
@@ -683,7 +683,7 @@ def clippy_recall():
 def swarm_chat():
     req = request.json
     topic = req.get('topic', 'General Inquiry')
-    
+
     # Simulate a multi-agent conversation
     # In a real environment, this would spawn multiple triton_broker instances with different system prompts
     conversation = [
@@ -693,7 +693,7 @@ def swarm_chat():
         "[Security Agent] Don't forget to sanitize the inputs before execution.",
         "[Director] Consensus reached. Proceeding with constrained modular logic."
     ]
-    
+
     return jsonify({"conversation": conversation})
 
 @app.route('/api/git/status', methods=['GET'])
@@ -712,11 +712,11 @@ def git_commit():
     try:
         subprocess.run(["git", "add", "-A"], cwd=HOME_DIR, capture_output=True)
         result = subprocess.run(["git", "commit", "-m", msg], cwd=HOME_DIR, capture_output=True, text=True)
-        
+
         # Optional: push
         if req.get('push', False):
             subprocess.run(["git", "push", "origin", "main"], cwd=HOME_DIR, capture_output=True)
-            
+
         return jsonify({"output": result.stdout.strip()})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
@@ -745,7 +745,7 @@ def get_scheduled_tasks():
     try:
         with open(SCHEDULER_FILE, 'r') as f:
             return jsonify(json.load(f))
-    except:
+    except Exception:
         return jsonify([])
 
 @app.route('/api/scheduler/add', methods=['POST'])
@@ -755,21 +755,21 @@ def add_scheduled_task():
     cmd = req.get('command')
     if not cron or not cmd:
         return jsonify({"error": "Cron and Command required"}), 400
-    
+
     tasks = []
     if os.path.exists(SCHEDULER_FILE):
         try:
             with open(SCHEDULER_FILE, 'r') as f:
                 tasks = json.load(f)
-        except:
+        except Exception:
             pass
-            
+
     tasks.append({"id": int(time.time()), "cron": cron, "command": cmd, "status": "Scheduled"})
-    
+
     os.makedirs(os.path.dirname(SCHEDULER_FILE), exist_ok=True)
     with open(SCHEDULER_FILE, 'w') as f:
         json.dump(tasks, f)
-        
+
     return jsonify({"status": "SUCCESS"})
 
 @app.route('/api/system/stats')
@@ -782,16 +782,16 @@ def system_stats():
                     mem_total = int(line.split()[1])
                 elif line.startswith('MemFree:') or line.startswith('MemAvailable:'):
                     mem_free = int(line.split()[1])
-        
+
         ram_usage = 0
         if mem_total > 0:
             ram_usage = int(((mem_total - mem_free) / mem_total) * 100)
-            
+
         load_avg = 0
         with open('/proc/loadavg', 'r') as f:
             load_avg = int(float(f.read().split()[0]) * 10) # Mock scaling for graph
             if load_avg > 100: load_avg = 100
-            
+
         return jsonify({"cpu": load_avg, "ram": ram_usage})
     except Exception as e:
         # Fallback to mock data if /proc is locked
@@ -813,7 +813,7 @@ def get_tasks():
                 if 'python' in cmd or 'agy' in cmd or 'bash' in cmd or 'llama' in cmd:
                     tasks.append({"pid": pid, "cmd": cmd})
         return jsonify(tasks)
-    except:
+    except Exception:
         return jsonify([])
 
 @app.route('/api/files', methods=['POST'])
@@ -822,7 +822,7 @@ def list_files():
     target_path = os.path.join(HOME_DIR, req.get('path', ''))
     if not os.path.exists(target_path) or not os.path.isdir(target_path):
         return jsonify({"error": "Invalid path"}), 400
-    
+
     items = []
     for f in os.listdir(target_path):
         if f.startswith('.'): continue
@@ -830,7 +830,7 @@ def list_files():
         rel_p = os.path.relpath(full_p, HOME_DIR)
         is_dir = os.path.isdir(full_p)
         items.append({"name": f, "path": rel_p, "type": "folder" if is_dir else "file"})
-    
+
     # Sort folders first, then files
     items.sort(key=lambda x: (0 if x['type'] == 'folder' else 1, x['name'].lower()))
     return jsonify(items)
@@ -870,7 +870,7 @@ def write_image_api():
     req = request.json
     target_path = os.path.join(HOME_DIR, req.get('path', ''))
     data_url = req.get('content', '')
-    
+
     try:
         # data_url looks like: "data:image/png;base64,iVBORw0KGgo..."
         if ',' in data_url:
@@ -913,7 +913,7 @@ def list_network_drives():
         with open(MAPPED_DRIVES_FILE, 'r') as f:
             drives = json.load(f)
         return jsonify(drives)
-    except:
+    except Exception:
         return jsonify([])
 
 @app.route('/api/network/map', methods=['POST'])
@@ -923,21 +923,21 @@ def map_network_drive():
     drive_path = req.get('path')
     if not drive_name or not drive_path:
         return jsonify({"error": "Name and Path required"}), 400
-    
+
     drives = []
     if os.path.exists(MAPPED_DRIVES_FILE):
         try:
             with open(MAPPED_DRIVES_FILE, 'r') as f:
                 drives = json.load(f)
-        except:
+        except Exception:
             pass
-    
+
     drives.append({"name": drive_name, "path": drive_path, "type": "network"})
-    
+
     os.makedirs(os.path.dirname(MAPPED_DRIVES_FILE), exist_ok=True)
     with open(MAPPED_DRIVES_FILE, 'w') as f:
         json.dump(drives, f)
-        
+
     return jsonify({"status": "SUCCESS"})
 
 @app.route('/api/file/delete', methods=['POST'])
@@ -960,7 +960,7 @@ def rename_file():
     new_name = req.get('new_name', '')
     if not new_name:
         return jsonify({"error": "New name required"}), 400
-    
+
     new_path = os.path.join(os.path.dirname(old_path), new_name)
     try:
         if os.path.exists(old_path):
@@ -1037,7 +1037,7 @@ def list_keys():
     try:
         with open(API_KEYS_FILE, 'r') as f:
             return jsonify(json.load(f))
-    except:
+    except Exception:
         return jsonify([])
 
 @app.route('/api/keys/save', methods=['POST'])
@@ -1047,15 +1047,15 @@ def save_key():
     key = req.get('key')
     if not service or not key:
         return jsonify({"error": "Service and Key required"}), 400
-    
+
     keys = []
     if os.path.exists(API_KEYS_FILE):
         try:
             with open(API_KEYS_FILE, 'r') as f:
                 keys = json.load(f)
-        except:
+        except Exception:
             pass
-            
+
     # Update or add
     found = False
     for k in keys:
@@ -1065,11 +1065,11 @@ def save_key():
             break
     if not found:
         keys.append({"service": service, "key": key})
-    
+
     os.makedirs(os.path.dirname(API_KEYS_FILE), exist_ok=True)
     with open(API_KEYS_FILE, 'w') as f:
         json.dump(keys, f)
-        
+
     return jsonify({"status": "SUCCESS"})
 
 @app.route('/api/system/readiness', methods=['GET'])
@@ -1084,7 +1084,7 @@ def check_readiness():
                     mem_total = int(line.split()[1])
                     break
         checks.append({"name": "Memory Bounds", "status": "PASS" if mem_total > 0 else "FAIL"})
-    except:
+    except Exception:
         checks.append({"name": "Memory Bounds", "status": "MOCK PASS"})
 
     # Check 2: Core Paths
@@ -1094,7 +1094,7 @@ def check_readiness():
 
     # Check 3: State Lock
     checks.append({"name": "Substrate State", "status": "PHASE-LOCKED"})
-    
+
     return jsonify({"checks": checks})
 
 @app.route('/api/clippy/evernote/search', methods=['GET'])
@@ -1137,7 +1137,7 @@ def get_flow():
 def handle_chat():
     req = request.json
     msg = req.get('message', '').strip()
-    
+
     if msg.lower().startswith('note:'):
         note_content = msg[5:].strip()
         import uuid
@@ -1145,26 +1145,26 @@ def handle_chat():
         import PocketMatrix.system.knowledge_hub as kh
         note_id = str(uuid.uuid4())
         evm.upsert_note(note_id, f"ClippyNote_{int(time.time())}", note_content, "clippy-chat", int(time.time()))
-        
+
         conn = sqlite3.connect(kh.HUB_DB)
         c = conn.cursor()
-        c.execute("INSERT OR REPLACE INTO knowledge (category, content, priority) VALUES (?, ?, ?)", 
+        c.execute("INSERT OR REPLACE INTO knowledge (category, content, priority) VALUES (?, ?, ?)",
                   (f"Clippy_SOP:{note_id}", note_content, 1.0))
         conn.commit()
         conn.close()
-        
+
         # Save to Viper Notes
         if not os.path.exists(NOTES_DIR):
             os.makedirs(NOTES_DIR, exist_ok=True)
         with open(os.path.join(NOTES_DIR, f"Clippy_{int(time.time())}.md"), "w") as f:
             f.write(note_content)
-            
+
         return jsonify({"output": "I have successfully tabulated that note into your global Knowledge Hub and Viper Notes!"})
-        
+
     # If not a note, query the LLM
     try:
         import PocketMatrix.system.knowledge_hub as kh
-        
+
         # Retrieve relevant context from notes database using BM25
         try:
             relevant_content = kh.search_knowledge_bm25(msg)

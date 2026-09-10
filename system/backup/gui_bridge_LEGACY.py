@@ -268,7 +268,7 @@ def sync_todo_google():
     c.execute("SELECT id, task, status FROM tasks")
     tasks = [{"id": r[0], "task": r[1], "status": r[2]} for r in c.fetchall()]
     conn.close()
-    
+
     success, msg = google_bridge.sync_keep(tasks)
     return jsonify({"status": "SUCCESS" if success else "ERROR", "message": msg})
 
@@ -282,10 +282,10 @@ def get_mail():
     c.execute("SELECT * FROM successful_scripts ORDER BY timestamp DESC LIMIT 5")
     logs = c.fetchall()
     conn.close()
-    
+
     mail_list = [{"from": "MatrixEngine@localhost", "subject": f"Mutation Success: {m[1]}", "body": m[3]} for m in logs]
     mail_list.insert(0, {"from": "System@PocketMatrix", "subject": "Gmail Bridge Ready", "body": "Gmail is running in LIVE mode. Emails composed here will be sent via SMTP using your configured App Password."})
-    
+
     return jsonify(mail_list)
 
 @app.route('/api/mail/send', methods=['POST'])
@@ -293,7 +293,7 @@ def send_mail():
     to = request.json.get('to')
     subject = request.json.get('subject')
     body = request.json.get('body')
-    
+
     success, msg = google_bridge.send_gmail(to, subject, body)
     return jsonify({"status": "SUCCESS" if success else "ERROR", "message": msg})
 
@@ -302,17 +302,17 @@ def web_crawl():
     url = request.json.get('url')
     if not url:
         return jsonify({"error": "No URL provided."}), 400
-        
+
     raw_data = ingestor.fetch_and_parse(url)
     if raw_data.startswith("ERROR"):
         return jsonify({"error": raw_data}), 500
-        
+
     formatted_logic = ingestor.format_for_danube(raw_data, url)
-    
+
     # Process the formatted logic through the Danube model to extract instructions
     result = subprocess.run(["agy", "-p", formatted_logic], capture_output=True, text=True)
     ai_response = result.stdout.strip()
-    
+
     return jsonify({"source": url, "ai_logic": ai_response})
 
 @app.route('/api/tasks')
@@ -331,7 +331,7 @@ def get_tasks():
                 if 'python' in cmd or 'agy' in cmd or 'bash' in cmd or 'llama' in cmd:
                     tasks.append({"pid": pid, "cmd": cmd})
         return jsonify(tasks)
-    except:
+    except Exception:
         return jsonify([])
 
 @app.route('/api/files', methods=['POST'])
@@ -340,7 +340,7 @@ def list_files():
     target_path = os.path.join(HOME_DIR, req.get('path', ''))
     if not os.path.exists(target_path) or not os.path.isdir(target_path):
         return jsonify({"error": "Invalid path"}), 400
-    
+
     items = []
     for f in os.listdir(target_path):
         if f.startswith('.'): continue
@@ -348,7 +348,7 @@ def list_files():
         rel_p = os.path.relpath(full_p, HOME_DIR)
         is_dir = os.path.isdir(full_p)
         items.append({"name": f, "path": rel_p, "type": "folder" if is_dir else "file"})
-    
+
     # Sort folders first, then files
     items.sort(key=lambda x: (0 if x['type'] == 'folder' else 1, x['name'].lower()))
     return jsonify(items)
